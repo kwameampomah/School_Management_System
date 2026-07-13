@@ -113,53 +113,94 @@ router.get("/dashboard/teacher-summary", requireTeacher, async (req, res): Promi
   let totalStudentsInCharge = 0;
   let pendingScoreEntries = 0;
 
-  for (const assignment of assignments) {
-    const classId = assignment.classId;
-    if (!classId) continue;
+  if (assignments.length > 0) {
+    const classIds = [...new Set(assignments.map(a => a.classId).filter(Boolean))] as number[];
+    const classSubjectIds = assignments.map(a => a.classSubjectId).filter(Boolean) as number[];
 
-    const [{ studentCount }] = await db
-      .select({ studentCount: count() })
+    // Bulk query student counts per class
+    const studentCountsResult = classIds.length > 0 ? await db
+      .select({
+        classId: studentsTable.classId,
+        studentCount: count(),
+      })
       .from(studentsTable)
-      .where(eq(studentsTable.classId, classId));
+      .where(sql`${studentsTable.classId} = ANY(ARRAY[${sql.join(classIds.map(id => sql`${id}`), sql`, `)}]::int[])`)
+      .groupBy(studentsTable.classId) : [];
 
-    // How many assessment components exist for this classSubject+term
-    const components = await db
-      .select({ id: assessmentComponentsTable.id })
+    const studentCountMap = new Map<number, number>();
+    for (const row of studentCountsResult) {
+      if (row.classId) {
+        studentCountMap.set(row.classId, Number(row.studentCount));
+      }
+    }
+
+    // Bulk query components for all classSubjectIds in this term
+    const componentsResult = classSubjectIds.length > 0 ? await db
+      .select({
+        id: assessmentComponentsTable.id,
+        classSubjectId: assessmentComponentsTable.classSubjectId,
+      })
       .from(assessmentComponentsTable)
       .where(
         and(
-          eq(assessmentComponentsTable.classSubjectId, assignment.classSubjectId),
+          sql`${assessmentComponentsTable.classSubjectId} = ANY(ARRAY[${sql.join(classSubjectIds.map(id => sql`${id}`), sql`, `)}]::int[])`,
           termId ? eq(assessmentComponentsTable.termId, termId) : sql`true`,
-        ),
-      );
+        )
+      ) : [];
 
-    const totalScoresExpected = studentCount * components.length;
-
-    // Count actual scores entered
-    let scoresEntered = 0;
-    if (components.length > 0) {
-      const componentIds = components.map(c => c.id);
-      const [{ cnt }] = await db
-        .select({ cnt: count() })
-        .from(scoresTable)
-        .where(
-          sql`${scoresTable.assessmentComponentId} = ANY(ARRAY[${sql.join(componentIds.map(id => sql`${id}`), sql`, `)}]::int[])`,
-        );
-      scoresEntered = cnt;
+    const componentsMap = new Map<number, number[]>();
+    for (const comp of componentsResult) {
+      const list = componentsMap.get(comp.classSubjectId!) ?? [];
+      list.push(comp.id);
+      componentsMap.set(comp.classSubjectId!, list);
     }
 
-    const pending = totalScoresExpected - scoresEntered;
-    pendingScoreEntries += Math.max(0, pending);
-    totalStudentsInCharge += studentCount;
+    // Bulk query score counts per component
+    const allComponentIds = componentsResult.map(c => c.id);
+    const scoreCountsMap = new Map<number, number>();
+    if (allComponentIds.length > 0) {
+      const scoreCountsResult = await db
+        .select({
+          componentId: scoresTable.assessmentComponentId,
+          cnt: count(),
+        })
+        .from(scoresTable)
+        .where(sql`${scoresTable.assessmentComponentId} = ANY(ARRAY[${sql.join(allComponentIds.map(id => sql`${id}`), sql`, `)}]::int[])`)
+        .groupBy(scoresTable.assessmentComponentId);
 
-    assignedClasses.push({
-      classId,
-      className: assignment.className ?? "",
-      subjectName: assignment.subjectName ?? "",
-      studentCount,
-      scoresEntered,
-      totalScoresExpected,
-    });
+      for (const row of scoreCountsResult) {
+        if (row.componentId) {
+          scoreCountsMap.set(row.componentId, Number(row.cnt));
+        }
+      }
+    }
+
+    for (const assignment of assignments) {
+      const classId = assignment.classId;
+      if (!classId) continue;
+
+      const studentCount = studentCountMap.get(classId) ?? 0;
+      const componentIds = componentsMap.get(assignment.classSubjectId!) ?? [];
+      const totalScoresExpected = studentCount * componentIds.length;
+
+      let scoresEntered = 0;
+      for (const compId of componentIds) {
+        scoresEntered += scoreCountsMap.get(compId) ?? 0;
+      }
+
+      const pending = totalScoresExpected - scoresEntered;
+      pendingScoreEntries += Math.max(0, pending);
+      totalStudentsInCharge += studentCount;
+
+      assignedClasses.push({
+        classId,
+        className: assignment.className ?? "",
+        subjectName: assignment.subjectName ?? "",
+        studentCount,
+        scoresEntered,
+        totalScoresExpected,
+      });
+    }
   }
 
   const ledClasses = await db
@@ -200,45 +241,89 @@ router.get("/dashboard/score-completion", requireAdmin, async (req, res): Promis
     .orderBy(classesTable.name, subjectsTable.name);
 
   const result = [];
-  for (const cs of classSubjects) {
-    const [{ studentCount }] = await db
-      .select({ studentCount: count() })
-      .from(studentsTable)
-      .where(eq(studentsTable.classId, cs.classId!));
 
-    const components = await db
-      .select({ id: assessmentComponentsTable.id })
+  if (classSubjects.length > 0) {
+    const classIds = [...new Set(classSubjects.map(cs => cs.classId).filter(Boolean))] as number[];
+    const classSubjectIds = classSubjects.map(cs => cs.classSubjectId).filter(Boolean) as number[];
+
+    // Bulk query student counts
+    const studentCountsResult = classIds.length > 0 ? await db
+      .select({
+        classId: studentsTable.classId,
+        studentCount: count(),
+      })
+      .from(studentsTable)
+      .where(sql`${studentsTable.classId} = ANY(ARRAY[${sql.join(classIds.map(id => sql`${id}`), sql`, `)}]::int[])`)
+      .groupBy(studentsTable.classId) : [];
+
+    const studentCountMap = new Map<number, number>();
+    for (const row of studentCountsResult) {
+      if (row.classId) {
+        studentCountMap.set(row.classId, Number(row.studentCount));
+      }
+    }
+
+    // Bulk query components
+    const componentsResult = classSubjectIds.length > 0 ? await db
+      .select({
+        id: assessmentComponentsTable.id,
+        classSubjectId: assessmentComponentsTable.classSubjectId,
+      })
       .from(assessmentComponentsTable)
       .where(
         and(
-          eq(assessmentComponentsTable.classSubjectId, cs.classSubjectId),
+          sql`${assessmentComponentsTable.classSubjectId} = ANY(ARRAY[${sql.join(classSubjectIds.map(id => sql`${id}`), sql`, `)}]::int[])`,
           eq(assessmentComponentsTable.termId, termId),
-        ),
-      );
+        )
+      ) : [];
 
-    const totalExpected = studentCount * components.length;
-    let totalEntered = 0;
-
-    if (components.length > 0) {
-      const componentIds = components.map(c => c.id);
-      const [{ cnt }] = await db
-        .select({ cnt: count() })
-        .from(scoresTable)
-        .where(
-          sql`${scoresTable.assessmentComponentId} = ANY(ARRAY[${sql.join(componentIds.map(id => sql`${id}`), sql`, `)}]::int[])`,
-        );
-      totalEntered = cnt;
+    const componentsMap = new Map<number, number[]>();
+    for (const comp of componentsResult) {
+      const list = componentsMap.get(comp.classSubjectId!) ?? [];
+      list.push(comp.id);
+      componentsMap.set(comp.classSubjectId!, list);
     }
 
-    result.push({
-      classId: cs.classId,
-      className: cs.className,
-      subjectId: cs.subjectId,
-      subjectName: cs.subjectName,
-      totalExpected,
-      totalEntered,
-      percentComplete: totalExpected > 0 ? Math.round((totalEntered / totalExpected) * 100) : 0,
-    });
+    // Bulk query score counts
+    const allComponentIds = componentsResult.map(c => c.id);
+    const scoreCountsMap = new Map<number, number>();
+    if (allComponentIds.length > 0) {
+      const scoreCountsResult = await db
+        .select({
+          componentId: scoresTable.assessmentComponentId,
+          cnt: count(),
+        })
+        .from(scoresTable)
+        .where(sql`${scoresTable.assessmentComponentId} = ANY(ARRAY[${sql.join(allComponentIds.map(id => sql`${id}`), sql`, `)}]::int[])`)
+        .groupBy(scoresTable.assessmentComponentId);
+
+      for (const row of scoreCountsResult) {
+        if (row.componentId) {
+          scoreCountsMap.set(row.componentId, Number(row.cnt));
+        }
+      }
+    }
+
+    for (const cs of classSubjects) {
+      const studentCount = studentCountMap.get(cs.classId!) ?? 0;
+      const componentIds = componentsMap.get(cs.classSubjectId!) ?? [];
+      const totalExpected = studentCount * componentIds.length;
+
+      let totalEntered = 0;
+      for (const compId of componentIds) {
+        totalEntered += scoreCountsMap.get(compId) ?? 0;
+      }
+
+      result.push({
+        classId: cs.classId,
+        className: cs.className,
+        subjectId: cs.subjectId,
+        subjectName: cs.subjectName,
+        totalExpected,
+        totalEntered,
+        percentComplete: totalExpected > 0 ? Math.round((totalEntered / totalExpected) * 100) : 0,
+      });
+    }
   }
 
   res.json(result);
