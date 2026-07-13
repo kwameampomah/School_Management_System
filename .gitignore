@@ -47,10 +47,25 @@ Thumbs.db
 # Replit
 .cache/
 .local/
+.replit
+.replit-artifact
+**/.replit-artifact/
+
+# AI / Coding Assistant metadata (Cursor, Claude, Copilot, Gemini, Windsurf, etc.)
+.cursor/
+.claude/
+CLAUDE.md
+claude.md
+.copilot/
+.gemini/
+.aider*
+.windsurf/
+*.ai-checkpoint
 
 # Local Database & Workspace Temp Files
 db-data/
 *.log
+pg_log.txt
 reset_pw.cjs
 *.tsbuildinfo
 drizzle/
