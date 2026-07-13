@@ -1,0 +1,426 @@
+import React, { useState } from "react";
+import { useListStudents, useCreateStudent, useUpdateStudent, useDeleteStudent, useListClasses, useGetMe, useListTeacherAssignments } from "@workspace/api-client-react";
+import { Button } from "@/components/ui/button";
+import { Card } from "@/components/ui/card";
+import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
+import { Input } from "@/components/ui/input";
+import { Label } from "@/components/ui/label";
+import { Select } from "@/components/ui/select";
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from "@/components/ui/dialog";
+import { useToast } from "@/hooks/use-toast";
+import { useQueryClient } from "@tanstack/react-query";
+import { getListStudentsQueryKey, StudentInputGender } from "@workspace/api-client-react";
+import { Loader2, Plus, Pencil, Trash2, Upload, Download } from "lucide-react";
+import { formatDate } from "@/lib/utils";
+
+export default function StudentsPage() {
+  const { data: user } = useGetMe();
+  const { data: classes } = useListClasses();
+  const { data: assignments } = useListTeacherAssignments(
+    user?.role === "teacher" && user.teacherId ? { teacherId: user.teacherId } : undefined
+  );
+  
+  // Find classes this user is allowed to view/manage
+  const allowedClasses = React.useMemo(() => {
+    if (!classes) return [];
+    if (user?.role === "admin") return classes;
+    if (user?.role === "teacher") {
+      return classes.filter(cls => {
+        // 1. Is class teacher
+        if (cls.classTeacherId === user.teacherId) return true;
+        // 2. Is subject teacher (match class by name)
+        return assignments?.some(a => a.className === cls.name);
+      });
+    }
+    return [];
+  }, [classes, user, assignments]);
+
+  const teacherLedClassId = classes?.find(cls => user?.role === "teacher" && cls.classTeacherId === user.teacherId)?.id;
+  
+  const [classFilter, setClassFilter] = useState<string>("");
+  
+  // Automatically select the first allowed class
+  React.useEffect(() => {
+    if (user?.role === "teacher" && allowedClasses.length > 0 && !classFilter) {
+      const preferred = allowedClasses.find(cls => cls.classTeacherId === user.teacherId) || allowedClasses[0];
+      if (preferred) {
+        setClassFilter(preferred.id.toString());
+      }
+    }
+  }, [user, allowedClasses, classFilter]);
+
+  const isClassTeacherOfSelectedClass = React.useMemo(() => {
+    if (user?.role === "admin") return true;
+    if (user?.role === "teacher" && classFilter) {
+      const selectedCls = classes?.find(cls => cls.id === parseInt(classFilter));
+      return selectedCls?.classTeacherId === user.teacherId;
+    }
+    return false;
+  }, [user, classes, classFilter]);
+
+  const { data: students, isLoading } = useListStudents(classFilter ? { classId: parseInt(classFilter) } : undefined);
+
+  const [isCreateOpen, setIsCreateOpen] = useState(false);
+  const [isImportOpen, setIsImportOpen] = useState(false);
+  const [editingStudent, setEditingStudent] = useState<any>(null);
+  const deleteStudent = useDeleteStudent();
+  const queryClient = useQueryClient();
+  const { toast } = useToast();
+
+  if (isLoading) return <div><Loader2 className="w-6 h-6 animate-spin mx-auto" /></div>;
+
+  const handleDelete = (id: number) => {
+    if (!confirm("Are you sure you want to delete this student? All their scores and report cards will be lost.")) return;
+    deleteStudent.mutate({ id }, {
+      onSuccess: () => {
+        toast({ title: "Deleted successfully" });
+        queryClient.invalidateQueries({ queryKey: getListStudentsQueryKey() });
+      }
+    });
+  };
+
+  return (
+    <div className="space-y-6">
+      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
+        <div>
+          <h1 className="text-xl sm:text-2xl font-bold tracking-tight">Students</h1>
+          <p className="text-muted-foreground text-sm hidden sm:block">Manage student enrollments and class allocations.</p>
+        </div>
+        <div className="flex items-center gap-2">
+          <Select 
+            value={classFilter} 
+            onChange={e => setClassFilter(e.target.value)} 
+            className="flex-1 sm:w-44 sm:flex-none"
+            disabled={user?.role === "teacher" && allowedClasses.length <= 1}
+          >
+            {user?.role === "admin" && <option value="">All Classes</option>}
+            {allowedClasses.map(c => <option key={c.id} value={c.id}>{c.name}</option>)}
+          </Select>
+          <Button 
+            onClick={() => setIsImportOpen(true)} 
+            variant="outline" 
+            size="sm" 
+            className="shrink-0"
+            disabled={!isClassTeacherOfSelectedClass}
+          >
+            <Upload className="w-4 h-4 mr-1 sm:mr-2" />
+            <span className="hidden sm:inline">Import CSV</span>
+            <span className="sm:hidden">Import</span>
+          </Button>
+          <Button 
+            onClick={() => setIsCreateOpen(true)} 
+            size="sm" 
+            className="shrink-0"
+            disabled={!isClassTeacherOfSelectedClass}
+          >
+            <Plus className="w-4 h-4 mr-1 sm:mr-2" />
+            <span className="hidden sm:inline">Add Student</span>
+            <span className="sm:hidden">Add</span>
+          </Button>
+        </div>
+      </div>
+
+      <Card>
+        <div className="overflow-x-auto">
+          <Table className="min-w-[480px]">
+            <TableHeader>
+              <TableRow>
+                <TableHead>Student ID</TableHead>
+                <TableHead>Full Name</TableHead>
+                <TableHead>Class</TableHead>
+                <TableHead className="hidden sm:table-cell">Gender</TableHead>
+                <TableHead className="hidden md:table-cell">Guardian</TableHead>
+                <TableHead className="text-right">Actions</TableHead>
+              </TableRow>
+            </TableHeader>
+            <TableBody>
+              {students?.length === 0 && (
+                <TableRow><TableCell colSpan={6} className="text-center text-muted-foreground">No students found.</TableCell></TableRow>
+              )}
+              {students?.map(student => (
+                <TableRow key={student.id}>
+                  <TableCell className="font-mono text-xs">{student.studentIdNumber}</TableCell>
+                  <TableCell className="font-medium">{student.fullName}</TableCell>
+                  <TableCell className="text-sm">{student.className}</TableCell>
+                  <TableCell className="hidden sm:table-cell capitalize text-sm">{student.gender || "-"}</TableCell>
+                  <TableCell className="hidden md:table-cell">
+                    <div className="text-sm">{student.guardianName || "-"}</div>
+                    <div className="text-xs text-muted-foreground">{student.guardianPhone || ""}</div>
+                  </TableCell>
+                  <TableCell className="text-right">
+                    <div className="flex items-center justify-end gap-1">
+                      <Button variant="ghost" size="icon" onClick={() => setEditingStudent(student)} disabled={!isClassTeacherOfSelectedClass}><Pencil className="w-4 h-4 text-muted-foreground" /></Button>
+                      <Button variant="ghost" size="icon" onClick={() => handleDelete(student.id)} disabled={!isClassTeacherOfSelectedClass}><Trash2 className="w-4 h-4 text-destructive" /></Button>
+                    </div>
+                  </TableCell>
+                </TableRow>
+              ))}
+            </TableBody>
+          </Table>
+        </div>
+      </Card>
+
+      <StudentDialog open={isCreateOpen} onOpenChange={setIsCreateOpen} />
+      <StudentDialog open={!!editingStudent} onOpenChange={(v) => !v && setEditingStudent(null)} student={editingStudent} />
+      <BulkImportDialog open={isImportOpen} onOpenChange={setIsImportOpen} />
+    </div>
+  );
+}
+
+function BulkImportDialog({ open, onOpenChange }: { open: boolean; onOpenChange: (v: boolean) => void }) {
+  const [isUploading, setIsUploading] = useState(false);
+  const queryClient = useQueryClient();
+  const { toast } = useToast();
+
+  const downloadTemplate = () => {
+    const csvContent = "studentIdNumber,fullName,classId,gender,dateOfBirth(YYYY-MM-DD),guardianName,guardianPhone,admissionDate(YYYY-MM-DD)\n" +
+      "STU001,John Doe,1,Male,2015-05-12,Richard Doe,0240000000,2024-09-01\n" +
+      "STU002,Jane Smith,1,Female,2016-03-24,Mary Smith,0550000000,2024-09-01\n";
+      
+    const blob = new Blob([csvContent], { type: "text/csv;charset=utf-8;" });
+    const url = URL.createObjectURL(blob);
+    const link = document.createElement("a");
+    link.setAttribute("href", url);
+    link.setAttribute("download", "students_import_template.csv");
+    link.style.visibility = "hidden";
+    document.body.appendChild(link);
+    link.click();
+    document.body.removeChild(link);
+  };
+
+  const handleFileChange = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+
+    const reader = new FileReader();
+    reader.onload = async (event) => {
+      const text = event.target?.result as string;
+      if (!text) return;
+
+      const lines = text.split(/\r?\n/);
+      const parsedStudents = [];
+
+      for (let i = 1; i < lines.length; i++) {
+        const line = lines[i].trim();
+        if (!line) continue;
+
+        const cells = line.split(/,(?=(?:(?:[^"]*"){2})*[^"]*$)/).map(c => c.replace(/^"|"$/g, '').trim());
+        if (cells.length < 3) continue;
+
+        parsedStudents.push({
+          studentIdNumber: cells[0],
+          fullName: cells[1],
+          classId: parseInt(cells[2], 10),
+          gender: cells[3] || null,
+          dateOfBirth: cells[4] || null,
+          guardianName: cells[5] || null,
+          guardianPhone: cells[6] || null,
+          admissionDate: cells[7] || null,
+        });
+      }
+
+      if (parsedStudents.length === 0) {
+        toast({ variant: "destructive", title: "Empty or invalid CSV file" });
+        return;
+      }
+
+      setIsUploading(true);
+      try {
+        const response = await fetch("/api/students/bulk", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ students: parsedStudents }),
+        });
+
+        if (!response.ok) throw new Error(await response.text());
+
+        const result = await response.json();
+        toast({
+          title: "Import completed",
+          description: `Successfully imported ${result.successCount} students. Errors: ${result.errorCount}`,
+        });
+
+        queryClient.invalidateQueries({ queryKey: getListStudentsQueryKey() });
+        onOpenChange(false);
+      } catch (err: any) {
+        toast({ variant: "destructive", title: "Import failed", description: err.message });
+      } finally {
+        setIsUploading(false);
+        e.target.value = "";
+      }
+    };
+    reader.readAsText(file);
+  };
+
+  return (
+    <Dialog open={open} onOpenChange={onOpenChange}>
+      <DialogContent className="w-[calc(100%-2rem)] max-w-md mx-auto">
+        <DialogHeader>
+          <DialogTitle>Import Students</DialogTitle>
+        </DialogHeader>
+        <div className="space-y-4 py-4">
+          <p className="text-sm text-muted-foreground">
+            Upload a list of students in CSV format. The template contains class IDs. Make sure the class IDs are valid.
+          </p>
+          <Button type="button" variant="outline" className="w-full" onClick={downloadTemplate}>
+            <Download className="w-4 h-4 mr-2" /> Download CSV Template
+          </Button>
+          <div className="border-2 border-dashed rounded-lg p-6 text-center cursor-pointer relative hover:bg-muted/30 transition-colors">
+            <input
+              type="file"
+              accept=".csv"
+              onChange={handleFileChange}
+              disabled={isUploading}
+              className="absolute inset-0 opacity-0 cursor-pointer"
+            />
+            {isUploading ? (
+              <div className="flex flex-col items-center gap-2">
+                <Loader2 className="w-8 h-8 animate-spin text-muted-foreground" />
+                <span className="text-sm text-muted-foreground">Uploading students list...</span>
+              </div>
+            ) : (
+              <div className="flex flex-col items-center gap-2">
+                <Upload className="w-8 h-8 text-muted-foreground" />
+                <span className="text-sm font-semibold">Click or drag CSV here</span>
+                <span className="text-xs text-muted-foreground">Only .csv files supported</span>
+              </div>
+            )}
+          </div>
+        </div>
+        <DialogFooter>
+          <Button variant="outline" onClick={() => onOpenChange(false)}>Close</Button>
+        </DialogFooter>
+      </DialogContent>
+    </Dialog>
+  );
+}
+
+
+function StudentDialog({ open, onOpenChange, student }: { open: boolean, onOpenChange: (v: boolean) => void, student?: any }) {
+  const [studentIdNumber, setStudentIdNumber] = useState("");
+  const [fullName, setFullName] = useState("");
+  const [classId, setClassId] = useState("");
+  const [gender, setGender] = useState<StudentInputGender | "">("");
+  const [dateOfBirth, setDateOfBirth] = useState("");
+  const [admissionDate, setAdmissionDate] = useState("");
+  const [guardianName, setGuardianName] = useState("");
+  const [guardianPhone, setGuardianPhone] = useState("");
+
+  const { data: user } = useGetMe();
+  const { data: classes } = useListClasses();
+  const allowedClasses = classes?.filter(cls => {
+    if (user?.role === "admin") return true;
+    if (user?.role === "teacher") return cls.classTeacherId === user.teacherId;
+    return false;
+  }) || [];
+
+  const create = useCreateStudent();
+  const update = useUpdateStudent();
+  const queryClient = useQueryClient();
+  const { toast } = useToast();
+
+  React.useEffect(() => {
+    if (open) {
+      setStudentIdNumber(student?.studentIdNumber || "");
+      setFullName(student?.fullName || "");
+      setGender(student?.gender || "");
+      setDateOfBirth(student?.dateOfBirth?.split("T")[0] || "");
+      setAdmissionDate(student?.admissionDate?.split("T")[0] || "");
+      setGuardianName(student?.guardianName || "");
+      setGuardianPhone(student?.guardianPhone || "");
+      
+      if (student?.classId) {
+        setClassId(student.classId.toString());
+      } else if (user?.role === "teacher") {
+        const ledClass = classes?.find(cls => cls.classTeacherId === user.teacherId);
+        if (ledClass) setClassId(ledClass.id.toString());
+      } else {
+        setClassId("");
+      }
+    }
+  }, [open, student, user, classes]);
+
+  const isEditing = !!student;
+
+  const handleSave = () => {
+    if (!studentIdNumber || !fullName || !classId) {
+      return toast({ variant: "destructive", title: "Fill all required fields" });
+    }
+    const payload: any = {
+      studentIdNumber, fullName, classId: parseInt(classId),
+      gender: gender || undefined, dateOfBirth: dateOfBirth || undefined,
+      admissionDate: admissionDate || undefined,
+      guardianName: guardianName || undefined, guardianPhone: guardianPhone || undefined
+    };
+    const onSuccess = () => {
+      queryClient.invalidateQueries({ queryKey: getListStudentsQueryKey() });
+      toast({ title: isEditing ? "Updated" : "Created" });
+      onOpenChange(false);
+    };
+    if (isEditing) {
+      update.mutate({ id: student.id, data: payload }, { onSuccess });
+    } else {
+      create.mutate({ data: payload }, { onSuccess });
+    }
+  };
+
+  return (
+    <Dialog open={open} onOpenChange={onOpenChange}>
+      <DialogContent className="w-[calc(100%-2rem)] max-w-xl mx-auto">
+        <DialogHeader>
+          <DialogTitle>{isEditing ? "Edit Student" : "Register Student"}</DialogTitle>
+        </DialogHeader>
+        <div className="space-y-4 py-4">
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+            <div className="space-y-2">
+              <Label>Student ID Number *</Label>
+              <Input value={studentIdNumber} onChange={e => setStudentIdNumber(e.target.value)} disabled={isEditing} placeholder="e.g. STU-2024-001" />
+            </div>
+            <div className="space-y-2">
+              <Label>Class *</Label>
+              <Select value={classId} onChange={e => setClassId(e.target.value)}>
+                <option value="">Select class...</option>
+                {allowedClasses.map(c => <option key={c.id} value={c.id.toString()}>{c.name}</option>)}
+              </Select>
+            </div>
+          </div>
+
+          <div className="space-y-2">
+            <Label>Full Name *</Label>
+            <Input value={fullName} onChange={e => setFullName(e.target.value)} />
+          </div>
+
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+            <div className="space-y-2">
+              <Label>Gender</Label>
+              <Select value={gender} onChange={e => setGender(e.target.value as any)}>
+                <option value="">Not specified</option>
+                <option value="male">Male</option>
+                <option value="female">Female</option>
+              </Select>
+            </div>
+            <div className="space-y-2">
+              <Label>Date of Birth</Label>
+              <Input type="date" value={dateOfBirth} onChange={e => setDateOfBirth(e.target.value)} />
+            </div>
+          </div>
+
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+            <div className="space-y-2">
+              <Label>Guardian Name</Label>
+              <Input value={guardianName} onChange={e => setGuardianName(e.target.value)} />
+            </div>
+            <div className="space-y-2">
+              <Label>Guardian Phone</Label>
+              <Input value={guardianPhone} onChange={e => setGuardianPhone(e.target.value)} />
+            </div>
+          </div>
+        </div>
+        <DialogFooter className="gap-2">
+          <Button variant="outline" onClick={() => onOpenChange(false)}>Cancel</Button>
+          <Button onClick={handleSave} disabled={create.isPending || update.isPending}>Save</Button>
+        </DialogFooter>
+      </DialogContent>
+    </Dialog>
+  );
+}

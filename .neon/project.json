@@ -1,0 +1,12 @@
+{
+  "projectId": "soft-rice-84863544",
+  "projectName": "school-management-system",
+  "organizationId": "org-steep-bonus-78190280",
+  "organizationName": "dankwa",
+  "defaultDatabase": "neondb",
+  "defaultRole": "neondb_owner",
+  "defaultBranch": "main",
+  "branchId": "br-plain-tree-afflgpwk",
+  "region": "aws-us-east-2",
+  "consoleUrl": "https://console.neon.tech/app/projects/soft-rice-84863544"
+}
