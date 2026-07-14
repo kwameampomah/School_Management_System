@@ -39,15 +39,15 @@ export default function TeacherDashboard() {
         <p className="text-muted-foreground text-sm">Manage your classes and enter student scores.</p>
       </div>
 
-      <div className="grid gap-4 sm:gap-6 sm:grid-cols-2">
+      <div className="grid grid-cols-2 gap-3 sm:gap-6">
         <Card className="bg-gradient-to-br from-violet-600 to-indigo-700 text-white border-0 shadow-md shadow-indigo-500/10 hover:shadow-xl hover:shadow-indigo-500/25 hover:-translate-y-1 transition-all duration-300">
-          <CardContent className="p-6 flex items-center justify-between">
-            <div>
-              <p className="text-indigo-100 font-medium mb-1">Students Under Your Care</p>
-              <h2 className="text-4xl font-bold tracking-tight">{summary.totalStudentsInCharge}</h2>
+          <CardContent className="p-4 sm:p-6 flex flex-col-reverse sm:flex-row items-stretch sm:items-center justify-between gap-2.5 sm:gap-0">
+            <div className="space-y-0.5">
+              <p className="text-indigo-100 text-[11px] sm:text-sm font-medium leading-tight">Students Under Your Care</p>
+              <h2 className="text-2xl sm:text-4xl font-bold tracking-tight">{summary.totalStudentsInCharge}</h2>
             </div>
-            <div className="w-12 h-12 bg-white/10 backdrop-blur-md border border-white/20 rounded-full flex items-center justify-center">
-              <BookOpen className="w-6 h-6 text-white" />
+            <div className="w-9 h-9 sm:w-12 sm:h-12 bg-white/10 backdrop-blur-md border border-white/20 rounded-full flex items-center justify-center self-end sm:self-auto shrink-0">
+              <BookOpen className="w-4.5 h-4.5 sm:w-6 sm:h-6 text-white" />
             </div>
           </CardContent>
         </Card>
@@ -56,13 +56,13 @@ export default function TeacherDashboard() {
           ? "bg-gradient-to-br from-amber-500 to-orange-600 text-white border-0 shadow-md shadow-orange-500/10 hover:shadow-xl hover:shadow-orange-500/25 hover:-translate-y-1 transition-all duration-300"
           : "bg-gradient-to-br from-emerald-500 to-teal-600 text-white border-0 shadow-md shadow-teal-500/10 hover:shadow-xl hover:shadow-teal-500/25 hover:-translate-y-1 transition-all duration-300"
         }>
-          <CardContent className="p-6 flex items-center justify-between">
-            <div>
-              <p className="font-medium mb-1 opacity-90">Pending Score Entries</p>
-              <h2 className="text-4xl font-bold tracking-tight">{summary.pendingScoreEntries}</h2>
+          <CardContent className="p-4 sm:p-6 flex flex-col-reverse sm:flex-row items-stretch sm:items-center justify-between gap-2.5 sm:gap-0">
+            <div className="space-y-0.5">
+              <p className="text-white/90 text-[11px] sm:text-sm font-medium leading-tight">Pending Score Entries</p>
+              <h2 className="text-2xl sm:text-4xl font-bold tracking-tight">{summary.pendingScoreEntries}</h2>
             </div>
-            <div className="w-12 h-12 bg-white/10 backdrop-blur-md border border-white/20 rounded-full flex items-center justify-center">
-              {summary.pendingScoreEntries > 0 ? <AlertCircle className="w-6 h-6 text-white" /> : <CheckCircle className="w-6 h-6 text-white" />}
+            <div className="w-9 h-9 sm:w-12 sm:h-12 bg-white/10 backdrop-blur-md border border-white/20 rounded-full flex items-center justify-center self-end sm:self-auto shrink-0">
+              {summary.pendingScoreEntries > 0 ? <AlertCircle className="w-4.5 h-4.5 sm:w-6 sm:h-6 text-white" /> : <CheckCircle className="w-4.5 h-4.5 sm:w-6 sm:h-6 text-white" />}
             </div>
           </CardContent>
         </Card>
