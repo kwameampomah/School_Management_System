@@ -141,6 +141,16 @@ router.post("/students/bulk", requireTeacher, async (req, res): Promise<void> =>
       }
     }
 
+    // Server-side safety date normalization
+    const normalizeDate = (dateStr: string | null | undefined): string | null => {
+      if (!dateStr) return null;
+      const cleaned = dateStr.trim().replace(/[\/\.]/g, "-");
+      if (/^\d{4}-\d{2}-\d{2}$/.test(cleaned)) {
+        return cleaned;
+      }
+      return dateStr;
+    };
+
     try {
       const [student] = await db
         .insert(studentsTable)
@@ -148,11 +158,11 @@ router.post("/students/bulk", requireTeacher, async (req, res): Promise<void> =>
           studentIdNumber,
           fullName,
           classId: parseInt(classId, 10),
-          dateOfBirth: dateOfBirth || null,
+          dateOfBirth: normalizeDate(dateOfBirth),
           gender: normalizedGender,
           guardianName: guardianName || null,
           guardianPhone: guardianPhone || null,
-          admissionDate: admissionDate || null
+          admissionDate: normalizeDate(admissionDate)
         })
         .returning();
       
