@@ -130,6 +130,17 @@ router.post("/students/bulk", requireTeacher, async (req, res): Promise<void> =>
       continue;
     }
 
+    // Server-side safety gender normalization
+    let normalizedGender: string | null = null;
+    if (gender) {
+      const g = gender.toLowerCase().trim();
+      if (g.startsWith("m")) {
+        normalizedGender = "male";
+      } else if (g.startsWith("f")) {
+        normalizedGender = "female";
+      }
+    }
+
     try {
       const [student] = await db
         .insert(studentsTable)
@@ -138,7 +149,7 @@ router.post("/students/bulk", requireTeacher, async (req, res): Promise<void> =>
           fullName,
           classId: parseInt(classId, 10),
           dateOfBirth: dateOfBirth || null,
-          gender: gender || null,
+          gender: normalizedGender,
           guardianName: guardianName || null,
           guardianPhone: guardianPhone || null,
           admissionDate: admissionDate || null
