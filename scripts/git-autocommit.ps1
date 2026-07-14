@@ -2,6 +2,10 @@ param (
     [int]$IntervalSeconds = 300
 )
 
+# Disable interactive credential prompting for git and credential manager
+$env:GIT_TERMINAL_PROMPT = "0"
+$env:GCM_INTERACTIVE = "never"
+
 # Set working directory to workspace root (one level up from scripts directory)
 $WorkspaceRoot = Split-Path $PSScriptRoot -Parent
 Set-Location $WorkspaceRoot
