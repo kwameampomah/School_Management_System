@@ -29,6 +29,11 @@ timeout /t 1 > nul
 echo Done.
 echo.
 
+:: Start Git Auto-Commit background service
+echo Starting Git Auto-Commit background service...
+call "%~dp0start-git-autocommit.bat"
+echo.
+
 :: Detect local IP address
 echo [2/6] Detecting local IP address...
 for /f "tokens=4" %%a in ('route print ^| findstr 0.0.0.0 ^| findstr /v "127.0.0.1"') do (
@@ -49,13 +54,13 @@ if %errorlevel% equ 0 (
     echo Database is stopped. 
     
     :: Delete old postmaster.pid lock file if present (recovers database after power cut / crash)
-    if exist "C:\Users\kwame\pgdata\postmaster.pid" (
+    if exist "%USERPROFILE%\pgdata\postmaster.pid" (
         echo Recovering database lock file...
-        del "C:\Users\kwame\pgdata\postmaster.pid" >nul 2>&1
+        del "%USERPROFILE%\pgdata\postmaster.pid" >nul 2>&1
     )
     
     echo Starting custom PostgreSQL server on port 5433...
-    start /min "PostgreSQL Database Server" "C:\Program Files\PostgreSQL\18\bin\postgres.exe" -D C:\Users\kwame\pgdata -p 5433
+    start /min "PostgreSQL Database Server" "C:\Program Files\PostgreSQL\18\bin\postgres.exe" -D "%USERPROFILE%\pgdata" -p 5433
     timeout /t 5 > nul
 )
 echo.
@@ -98,3 +103,19 @@ echo ==========================================================
 echo.
 
 pause
+
+echo.
+echo Shutting down all servers...
+:: Kill API Server
+for /f "tokens=5" %%a in ('netstat -aon ^| findstr :8085 ^| findstr LISTENING') do (
+    taskkill /f /pid %%a >nul 2>&1
+)
+:: Kill Frontend Server
+for /f "tokens=5" %%a in ('netstat -aon ^| findstr :3000 ^| findstr LISTENING') do (
+    taskkill /f /pid %%a >nul 2>&1
+)
+:: Stop Git Auto-Commit Service
+call "%~dp0stop-git-autocommit.bat" >nul
+
+echo All servers shut down successfully.
+timeout /t 2 >nul

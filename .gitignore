@@ -87,3 +87,7 @@ certs/
 # .neon/project.json is intentionally NOT ignored — it contains no secrets
 # and links this repo to the Neon cloud project for team members.
 
+# Git Auto-commit service files
+/scripts/git-autocommit.pid
+
+
