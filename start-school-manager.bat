@@ -9,6 +9,13 @@ title Ghana GES School Report Manager Launcher
 color 0A
 cls
 
+:: Load DB_MODE from .env file if it exists
+set "ENV_PATH=%~dp0.env"
+for /f "usebackq" %%a in (`powershell -NoProfile -Command "if (Test-Path $env:ENV_PATH) { $data = Get-Content $env:ENV_PATH | ConvertFrom-StringData; if ($data.DB_MODE) { $data.DB_MODE } }"`) do (
+    set "DB_MODE=%%a"
+)
+
+
 echo ==========================================================
 echo       Ghana GES School Report Manager Startup
 echo ==========================================================
@@ -47,27 +54,39 @@ echo.
 
 :: Check if PostgreSQL is already running on port 5433 using pg_isready
 echo [3/6] Checking PostgreSQL status...
-"C:\Program Files\PostgreSQL\18\bin\pg_isready.exe" -h 127.0.0.1 -p 5433 >nul 2>&1
-if %errorlevel% equ 0 (
-    echo Database is already running on port 5433.
-) else (
-    echo Database is stopped. 
-    
-    :: Delete old postmaster.pid lock file if present (recovers database after power cut / crash)
-    if exist "%USERPROFILE%\pgdata\postmaster.pid" (
-        echo Recovering database lock file...
-        del "%USERPROFILE%\pgdata\postmaster.pid" >nul 2>&1
-    )
-    
-    echo Starting custom PostgreSQL server on port 5433...
-    start /min "PostgreSQL Database Server" "C:\Program Files\PostgreSQL\18\bin\postgres.exe" -D "%USERPROFILE%\pgdata" -p 5433
-    timeout /t 5 > nul
+if "%DB_MODE%"=="cloud" (
+    echo Database is running in CLOUD mode - Neon. Skipping local PostgreSQL startup.
+    goto start_api
 )
+
+"C:\Program Files\PostgreSQL\18\bin\pg_isready.exe" -h 127.0.0.1 -p 5433 >nul 2>&1
+if "%errorlevel%"=="0" (
+    echo Database is already running on port 5433.
+    goto start_api
+)
+
+echo Database is stopped. 
+
+rem Delete old postmaster.pid lock file if present (recovers database after power cut / crash)
+if exist "%USERPROFILE%\pgdata\postmaster.pid" (
+    echo Recovering database lock file...
+    del "%USERPROFILE%\pgdata\postmaster.pid" >nul 2>&1
+)
+
+echo Starting custom PostgreSQL server on port 5433...
+start /min "PostgreSQL Database Server" "C:\Program Files\PostgreSQL\18\bin\postgres.exe" -D "%USERPROFILE%\pgdata" -p 5433
+timeout /t 5 > nul
+
+:start_api
 echo.
 
 :: Start API Server minimized (HTTP) on port 8085
 echo [4/6] Starting API Backend Server on port 8085...
-start /min "Ghana GES - API Server" cmd /c "title API Server && cd /d %~dp0 && set "DATABASE_URL=postgresql://postgres:postgres@127.0.0.1:5433/school_report" && set "SESSION_SECRET=78e8117fe38132cc1bb461ed6cf88b316dc9c0785075d4d6f1ed5508488bbe2b7740737bc6f2189c1541b0c311cd28f835dda744afd2a1fa129e89ad3034bf85" && set "PORT=8085" && set "NODE_ENV=development" && set "HTTPS=false" && pnpm --filter @workspace/api-server run dev"
+if "%DB_MODE%"=="cloud" (
+    start /min "Ghana GES - API Server" cmd /c "title API Server && cd /d %~dp0 && pnpm --filter @workspace/api-server run dev"
+) else (
+    start /min "Ghana GES - API Server" cmd /c "title API Server && cd /d %~dp0 && set "DATABASE_URL=postgresql://postgres:postgres@127.0.0.1:5433/school_report" && set "SESSION_SECRET=78e8117fe38132cc1bb461ed6cf88b316dc9c0785075d4d6f1ed5508488bbe2b7740737bc6f2189c1541b0c311cd28f835dda744afd2a1fa129e89ad3034bf85" && set "PORT=8085" && set "NODE_ENV=development" && set "HTTPS=false" && pnpm --filter @workspace/api-server run dev"
+)
 timeout /t 2 > nul
 echo.
 
