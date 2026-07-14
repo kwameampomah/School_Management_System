@@ -6,6 +6,7 @@ import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Select } from "@/components/ui/select";
+import { Badge } from "@/components/ui/badge";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from "@/components/ui/dialog";
 import { useToast } from "@/hooks/use-toast";
 import { useQueryClient } from "@tanstack/react-query";
@@ -38,6 +39,7 @@ export default function StudentsPage() {
   const teacherLedClassId = classes?.find(cls => user?.role === "teacher" && cls.classTeacherId === user.teacherId)?.id;
   
   const [classFilter, setClassFilter] = useState<string>("");
+  const [searchQuery, setSearchQuery] = useState("");
   
   // Automatically select the first allowed class
   React.useEffect(() => {
@@ -60,6 +62,14 @@ export default function StudentsPage() {
 
   const { data: students, isLoading } = useListStudents(classFilter ? { classId: parseInt(classFilter) } : undefined);
 
+  const filteredStudents = React.useMemo(() => {
+    if (!students) return [];
+    return students.filter(student => 
+      student.fullName.toLowerCase().includes(searchQuery.toLowerCase()) ||
+      student.studentIdNumber.toLowerCase().includes(searchQuery.toLowerCase())
+    );
+  }, [students, searchQuery]);
+
   const [isCreateOpen, setIsCreateOpen] = useState(false);
   const [isImportOpen, setIsImportOpen] = useState(false);
   const [editingStudent, setEditingStudent] = useState<any>(null);
@@ -81,46 +91,59 @@ export default function StudentsPage() {
 
   return (
     <div className="space-y-6">
-      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
-        <div>
-          <h1 className="text-xl sm:text-2xl font-bold tracking-tight">Students</h1>
-          <p className="text-muted-foreground text-sm hidden sm:block">Manage student enrollments and class allocations.</p>
+      <div className="flex flex-col gap-4">
+        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
+          <div>
+            <h1 className="text-xl sm:text-2xl font-bold tracking-tight">Students</h1>
+            <p className="text-muted-foreground text-sm hidden sm:block">Manage student enrollments and class allocations.</p>
+          </div>
+          <div className="flex items-center gap-2">
+            <Select 
+              value={classFilter} 
+              onChange={e => setClassFilter(e.target.value)} 
+              className="w-full sm:w-44"
+              disabled={user?.role === "teacher" && allowedClasses.length <= 1}
+            >
+              {user?.role === "admin" && <option value="">All Classes</option>}
+              {allowedClasses.map(c => <option key={c.id} value={c.id}>{c.name}</option>)}
+            </Select>
+            <Button 
+              onClick={() => setIsImportOpen(true)} 
+              variant="outline" 
+              size="sm" 
+              className="shrink-0"
+              disabled={!isClassTeacherOfSelectedClass}
+            >
+              <Upload className="w-4 h-4 mr-1 sm:mr-2" />
+              <span className="hidden sm:inline">Import CSV</span>
+              <span className="sm:hidden">Import</span>
+            </Button>
+            <Button 
+              onClick={() => setIsCreateOpen(true)} 
+              size="sm" 
+              className="shrink-0"
+              disabled={!isClassTeacherOfSelectedClass}
+            >
+              <Plus className="w-4 h-4 mr-1 sm:mr-2" />
+              <span className="hidden sm:inline">Add Student</span>
+              <span className="sm:hidden">Add</span>
+            </Button>
+          </div>
         </div>
-        <div className="flex items-center gap-2">
-          <Select 
-            value={classFilter} 
-            onChange={e => setClassFilter(e.target.value)} 
-            className="flex-1 sm:w-44 sm:flex-none"
-            disabled={user?.role === "teacher" && allowedClasses.length <= 1}
-          >
-            {user?.role === "admin" && <option value="">All Classes</option>}
-            {allowedClasses.map(c => <option key={c.id} value={c.id}>{c.name}</option>)}
-          </Select>
-          <Button 
-            onClick={() => setIsImportOpen(true)} 
-            variant="outline" 
-            size="sm" 
-            className="shrink-0"
-            disabled={!isClassTeacherOfSelectedClass}
-          >
-            <Upload className="w-4 h-4 mr-1 sm:mr-2" />
-            <span className="hidden sm:inline">Import CSV</span>
-            <span className="sm:hidden">Import</span>
-          </Button>
-          <Button 
-            onClick={() => setIsCreateOpen(true)} 
-            size="sm" 
-            className="shrink-0"
-            disabled={!isClassTeacherOfSelectedClass}
-          >
-            <Plus className="w-4 h-4 mr-1 sm:mr-2" />
-            <span className="hidden sm:inline">Add Student</span>
-            <span className="sm:hidden">Add</span>
-          </Button>
+
+        {/* Search Input Bar */}
+        <div className="w-full max-w-md">
+          <Input 
+            placeholder="Search students by name or ID..." 
+            value={searchQuery}
+            onChange={e => setSearchQuery(e.target.value)}
+            className="w-full bg-background"
+          />
         </div>
       </div>
 
-      <Card>
+      {/* Desktop Version: Table Layout */}
+      <Card className="hidden sm:block">
         <div className="overflow-x-auto">
           <Table className="min-w-[480px]">
             <TableHeader>
@@ -134,10 +157,10 @@ export default function StudentsPage() {
               </TableRow>
             </TableHeader>
             <TableBody>
-              {students?.length === 0 && (
-                <TableRow><TableCell colSpan={6} className="text-center text-muted-foreground">No students found.</TableCell></TableRow>
+              {filteredStudents.length === 0 && (
+                <TableRow><TableCell colSpan={6} className="text-center text-muted-foreground py-6">No students found.</TableCell></TableRow>
               )}
-              {students?.map(student => (
+              {filteredStudents.map(student => (
                 <TableRow key={student.id}>
                   <TableCell className="font-mono text-xs">{student.studentIdNumber}</TableCell>
                   <TableCell className="font-medium">{student.fullName}</TableCell>
@@ -159,6 +182,66 @@ export default function StudentsPage() {
           </Table>
         </div>
       </Card>
+
+      {/* Mobile Version: Responsive Card Grid */}
+      <div className="grid grid-cols-1 gap-3 sm:hidden">
+        {filteredStudents.length === 0 && (
+          <div className="text-center text-muted-foreground py-10 border border-dashed rounded-xl bg-card/20">
+            No students found.
+          </div>
+        )}
+        {filteredStudents.map(student => (
+          <div 
+            key={student.id} 
+            className="border border-border/60 bg-card/40 p-4 rounded-xl space-y-3 shadow-sm hover:shadow-md transition-all duration-300"
+          >
+            <div className="flex items-start justify-between gap-2">
+              <div className="space-y-0.5">
+                <h3 className="font-bold text-sm text-foreground leading-tight">{student.fullName}</h3>
+                <p className="font-mono text-[11px] text-muted-foreground">{student.studentIdNumber}</p>
+              </div>
+              <Badge variant="secondary" className="text-xs shrink-0 px-2 py-0.5 leading-none">
+                {student.className}
+              </Badge>
+            </div>
+            
+            <div className="grid grid-cols-2 gap-2 pt-2 border-t border-border/40 text-xs">
+              <div>
+                <span className="text-muted-foreground block text-[10px] uppercase tracking-wider">Gender</span>
+                <span className="font-medium capitalize text-sm">{student.gender || "-"}</span>
+              </div>
+              <div>
+                <span className="text-muted-foreground block text-[10px] uppercase tracking-wider">Guardian</span>
+                <span className="font-medium text-sm block truncate">{student.guardianName || "-"}</span>
+                <span className="text-muted-foreground text-[11px]">{student.guardianPhone || ""}</span>
+              </div>
+            </div>
+
+            <div className="flex items-center justify-end gap-2 pt-2.5 border-t border-border/40">
+              <Button 
+                variant="outline" 
+                size="sm" 
+                onClick={() => setEditingStudent(student)} 
+                disabled={!isClassTeacherOfSelectedClass}
+                className="h-8 text-xs flex items-center gap-1.5"
+              >
+                <Pencil className="w-3.5 h-3.5 text-muted-foreground" />
+                Edit
+              </Button>
+              <Button 
+                variant="outline" 
+                size="sm" 
+                onClick={() => handleDelete(student.id)} 
+                disabled={!isClassTeacherOfSelectedClass}
+                className="h-8 text-xs text-destructive hover:bg-destructive/5 hover:text-destructive flex items-center gap-1.5"
+              >
+                <Trash2 className="w-3.5 h-3.5" />
+                Delete
+              </Button>
+            </div>
+          </div>
+        ))}
+      </div>
 
       <StudentDialog open={isCreateOpen} onOpenChange={setIsCreateOpen} />
       <StudentDialog open={!!editingStudent} onOpenChange={(v) => !v && setEditingStudent(null)} student={editingStudent} />
