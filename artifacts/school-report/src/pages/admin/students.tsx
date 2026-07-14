@@ -171,11 +171,13 @@ function BulkImportDialog({ open, onOpenChange }: { open: boolean; onOpenChange:
   const [isUploading, setIsUploading] = useState(false);
   const queryClient = useQueryClient();
   const { toast } = useToast();
+  const { data: classes } = useListClasses();
 
   const downloadTemplate = () => {
-    const csvContent = "studentIdNumber,fullName,classId,gender,dateOfBirth(YYYY-MM-DD),guardianName,guardianPhone,admissionDate(YYYY-MM-DD)\n" +
-      "STU001,John Doe,1,Male,2015-05-12,Richard Doe,0240000000,2024-09-01\n" +
-      "STU002,Jane Smith,1,Female,2016-03-24,Mary Smith,0550000000,2024-09-01\n";
+    const className = classes?.[0]?.name || "Class 1";
+    const csvContent = "studentIdNumber,fullName,class,gender,dateOfBirth(YYYY-MM-DD),guardianName,guardianPhone,admissionDate(YYYY-MM-DD)\n" +
+      `STU001,John Doe,${className},Male,2015-05-12,Richard Doe,0240000000,2024-09-01\n` +
+      `STU002,Jane Smith,${className},Female,2016-03-24,Mary Smith,0550000000,2024-09-01\n`;
       
     const blob = new Blob([csvContent], { type: "text/csv;charset=utf-8;" });
     const url = URL.createObjectURL(blob);
@@ -197,35 +199,151 @@ function BulkImportDialog({ open, onOpenChange }: { open: boolean; onOpenChange:
       const text = event.target?.result as string;
       if (!text) return;
 
-      const lines = text.split(/\r?\n/);
-      const parsedStudents = [];
-
-      for (let i = 1; i < lines.length; i++) {
-        const line = lines[i].trim();
-        if (!line) continue;
-
-        const cells = line.split(/,(?=(?:(?:[^"]*"){2})*[^"]*$)/).map(c => c.replace(/^"|"$/g, '').trim());
-        if (cells.length < 3) continue;
-
-        parsedStudents.push({
-          studentIdNumber: cells[0],
-          fullName: cells[1],
-          classId: parseInt(cells[2], 10),
-          gender: cells[3] || null,
-          dateOfBirth: cells[4] || null,
-          guardianName: cells[5] || null,
-          guardianPhone: cells[6] || null,
-          admissionDate: cells[7] || null,
-        });
-      }
-
-      if (parsedStudents.length === 0) {
-        toast({ variant: "destructive", title: "Empty or invalid CSV file" });
-        return;
-      }
-
-      setIsUploading(true);
       try {
+        // Robust CSV Parser (handles quotes and whitespace)
+        const lines = text.split(/\r?\n/).map(line => {
+          const result = [];
+          let current = "";
+          let inQuotes = false;
+          for (let i = 0; i < line.length; i++) {
+            const char = line[i];
+            if (char === '"') {
+              inQuotes = !inQuotes;
+            } else if (char === ',' && !inQuotes) {
+              result.push(current.trim());
+              current = "";
+            } else {
+              current += char;
+            }
+          }
+          result.push(current.trim());
+          return result;
+        }).filter(line => line.length > 0 && line.some(cell => cell !== ""));
+
+        if (lines.length < 2) {
+          toast({ variant: "destructive", title: "Empty CSV", description: "The CSV file does not contain any data rows." });
+          return;
+        }
+
+        const headers = lines[0];
+
+        // Flexible keyword-based header matching
+        const getIdx = (keywords: string[]) => headers.findIndex(h => {
+          const l = h.toLowerCase().trim().replace(/[^a-z0-9]/g, "");
+          return keywords.some(k => {
+            const cleanK = k.toLowerCase().replace(/[^a-z0-9]/g, "");
+            return l.includes(cleanK) || cleanK.includes(l);
+          });
+        });
+
+        const studentIdIdx = getIdx(["studentidnumber", "studentid", "id"]);
+        const fullNameIdx = getIdx(["fullname", "name"]);
+        const classIdx = getIdx(["class", "classid", "classidnumber", "classname", "class name", "class_id"]);
+        const genderIdx = getIdx(["gender", "sex"]);
+        const dobIdx = getIdx(["dateofbirth", "dob", "birthdate", "birth date"]);
+        const guardianNameIdx = getIdx(["guardianname", "guardian"]);
+        const guardianPhoneIdx = getIdx(["guardianphone", "phone", "contact"]);
+        const admissionDateIdx = getIdx(["admissiondate", "admission"]);
+
+        // Validate mandatory columns
+        if (studentIdIdx === -1 || fullNameIdx === -1 || classIdx === -1) {
+          toast({
+            variant: "destructive",
+            title: "Invalid CSV Headers",
+            description: "Could not find required columns in headers. Ensure your CSV has headers for 'Student ID', 'Full Name', and 'Class'."
+          });
+          return;
+        }
+
+        const parsedStudents = [];
+
+        for (let i = 1; i < lines.length; i++) {
+          const cells = lines[i];
+          const studentIdNumber = cells[studentIdIdx] || "";
+          const fullName = cells[fullNameIdx] || "";
+          const rawClassVal = classIdx !== -1 ? cells[classIdx] : "";
+
+          // Skip completely empty rows
+          if (!studentIdNumber && !fullName) continue;
+
+          // Check required fields
+          if (!studentIdNumber || !fullName || !rawClassVal) {
+            toast({
+              variant: "destructive",
+              title: "Missing Required Fields",
+              description: `Row ${i + 1}: Student ID, Full Name, and Class are required.`
+            });
+            return;
+          }
+
+          // Resolve Class ID from Class Name or Class ID
+          let classId: number | null = null;
+          const matchedClassByName = classes?.find(c => c.name.toLowerCase().trim() === rawClassVal.toLowerCase().trim());
+          if (matchedClassByName) {
+            classId = matchedClassByName.id;
+          } else {
+            const parsedId = parseInt(rawClassVal, 10);
+            if (!isNaN(parsedId)) {
+              const matchedClassById = classes?.find(c => c.id === parsedId);
+              if (matchedClassById) {
+                classId = matchedClassById.id;
+              }
+            }
+          }
+
+          if (classId === null) {
+            toast({
+              variant: "destructive",
+              title: "Class Not Found",
+              description: `Row ${i + 1}: Class "${rawClassVal}" was not found. Please verify the Class Name or ID.`
+            });
+            return;
+          }
+
+          // Normalize gender (accepts Male, M, Female, F, etc. and maps to lowercase 'male'/'female')
+          let gender = null;
+          if (genderIdx !== -1 && cells[genderIdx]) {
+            const g = cells[genderIdx].toLowerCase().trim();
+            if (g.startsWith("m")) {
+              gender = "male";
+            } else if (g.startsWith("f")) {
+              gender = "female";
+            }
+          }
+
+          // Normalize dates (convert dots or slashes to dashes)
+          const normalizeDate = (dateStr: string | null | undefined): string | null => {
+             if (!dateStr) return null;
+             const cleaned = dateStr.trim().replace(/[\/\.]/g, "-");
+             if (/^\d{4}-\d{2}-\d{2}$/.test(cleaned)) {
+               return cleaned;
+             }
+             return dateStr;
+          };
+
+          const dateOfBirth = dobIdx !== -1 ? normalizeDate(cells[dobIdx]) : null;
+          const guardianName = guardianNameIdx !== -1 ? cells[guardianNameIdx] || null : null;
+          const guardianPhone = guardianPhoneIdx !== -1 ? cells[guardianPhoneIdx] || null : null;
+          const admissionDate = admissionDateIdx !== -1 ? normalizeDate(cells[admissionDateIdx]) : null;
+
+          parsedStudents.push({
+            studentIdNumber,
+            fullName,
+            classId,
+            gender,
+            dateOfBirth,
+            guardianName,
+            guardianPhone,
+            admissionDate,
+          });
+        }
+
+        if (parsedStudents.length === 0) {
+          toast({ variant: "destructive", title: "Empty or invalid CSV file" });
+          return;
+        }
+
+        setIsUploading(true);
         const response = await fetch("/api/students/bulk", {
           method: "POST",
           headers: { "Content-Type": "application/json" },
@@ -260,7 +378,7 @@ function BulkImportDialog({ open, onOpenChange }: { open: boolean; onOpenChange:
         </DialogHeader>
         <div className="space-y-4 py-4">
           <p className="text-sm text-muted-foreground">
-            Upload a list of students in CSV format. The template contains class IDs. Make sure the class IDs are valid.
+            Upload a list of students in CSV format. You can specify classes using either their names or database IDs.
           </p>
           <Button type="button" variant="outline" className="w-full" onClick={downloadTemplate}>
             <Download className="w-4 h-4 mr-2" /> Download CSV Template
