@@ -1,5 +1,5 @@
 import { Link, useLocation } from "wouter";
-import { useEffect, useState } from "react";
+import { useEffect, useState, useMemo } from "react";
 import { useGetMe, useLogout } from "@workspace/api-client-react";
 import {
   Loader2, LogOut, BookOpen, Users, GraduationCap, LayoutDashboard,
@@ -130,6 +130,15 @@ export function AppLayout({
   const [mobileOpen, setMobileOpen] = useState(false);
   const { theme, toggleTheme } = useTheme();
 
+  const bottomItems = useMemo(() => {
+    const items = navItems[role];
+    if (role === "admin") {
+      const mainLabels = ["Dashboard", "Classes", "Students", "Report Cards"];
+      return items.filter(i => mainLabels.includes(i.label));
+    }
+    return items;
+  }, [role]);
+
   useEffect(() => {
     if (!isLoading && (!user || user.role !== role)) {
       setLocation("/login");
@@ -233,11 +242,47 @@ export function AppLayout({
           </div>
         </header>
 
-        <div className="flex-1 overflow-y-auto p-3 sm:p-5 md:p-8">
+        <div className="flex-1 overflow-y-auto p-3 pb-20 sm:p-5 md:p-8">
           <div className="max-w-7xl mx-auto space-y-6">
             {children}
           </div>
         </div>
+
+        {/* Mobile Bottom Navigation Bar */}
+        <nav className="fixed bottom-0 inset-x-0 z-30 bg-card border-t border-border/85 h-16 md:hidden flex items-center justify-around px-2 pb-safe shadow-lg shadow-black/10">
+          {bottomItems.map((item) => {
+            const Icon = item.icon;
+            const isActive =
+              location === item.href ||
+              (location.startsWith(item.href) &&
+                item.href !== "/admin" &&
+                item.href !== "/teacher" &&
+                item.href !== "/parent");
+            return (
+              <Link
+                key={item.href}
+                href={item.href}
+                className={`flex flex-col items-center justify-center flex-1 h-full py-1 text-center transition-colors ${
+                  isActive ? "text-primary font-semibold" : "text-muted-foreground hover:text-foreground"
+                }`}
+              >
+                <Icon className="w-5 h-5 shrink-0" />
+                <span className="text-[10px] mt-1 truncate max-w-[75px]">{item.label}</span>
+              </Link>
+            );
+          })}
+          
+          {/* If there are more items (like admin has 12), show a 'More' button to trigger the sidebar overlay */}
+          {role === "admin" && (
+            <button
+              onClick={() => setMobileOpen(true)}
+              className="flex flex-col items-center justify-center flex-1 h-full py-1 text-center text-muted-foreground hover:text-foreground"
+            >
+              <Menu className="w-5 h-5 shrink-0" />
+              <span className="text-[10px] mt-1">More</span>
+            </button>
+          )}
+        </nav>
       </main>
     </div>
   );

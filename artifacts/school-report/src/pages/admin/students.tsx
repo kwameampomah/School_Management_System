@@ -184,7 +184,7 @@ export default function StudentsPage() {
       </Card>
 
       {/* Mobile Version: Responsive Card Grid */}
-      <div className="grid grid-cols-1 gap-3 sm:hidden">
+      <div className="grid grid-cols-1 gap-2.5 sm:hidden">
         {filteredStudents.length === 0 && (
           <div className="text-center text-muted-foreground py-10 border border-dashed rounded-xl bg-card/20">
             No students found.
@@ -193,50 +193,43 @@ export default function StudentsPage() {
         {filteredStudents.map(student => (
           <div 
             key={student.id} 
-            className="border border-border/60 bg-card/40 p-4 rounded-xl space-y-3 shadow-sm hover:shadow-md transition-all duration-300"
+            className="border border-border/50 bg-card/30 px-3 py-2.5 rounded-lg flex items-center justify-between gap-3 shadow-sm"
           >
-            <div className="flex items-start justify-between gap-2">
-              <div className="space-y-0.5">
-                <h3 className="font-bold text-sm text-foreground leading-tight">{student.fullName}</h3>
-                <p className="font-mono text-[11px] text-muted-foreground">{student.studentIdNumber}</p>
+            <div className="min-w-0 flex-1">
+              <div className="flex items-center gap-2">
+                <h3 className="font-semibold text-sm text-foreground truncate">{student.fullName}</h3>
+                <Badge variant="secondary" className="text-[10px] px-1.5 py-0 leading-none shrink-0">{student.className}</Badge>
               </div>
-              <Badge variant="secondary" className="text-xs shrink-0 px-2 py-0.5 leading-none">
-                {student.className}
-              </Badge>
-            </div>
-            
-            <div className="grid grid-cols-2 gap-2 pt-2 border-t border-border/40 text-xs">
-              <div>
-                <span className="text-muted-foreground block text-[10px] uppercase tracking-wider">Gender</span>
-                <span className="font-medium capitalize text-sm">{student.gender || "-"}</span>
-              </div>
-              <div>
-                <span className="text-muted-foreground block text-[10px] uppercase tracking-wider">Guardian</span>
-                <span className="font-medium text-sm block truncate">{student.guardianName || "-"}</span>
-                <span className="text-muted-foreground text-[11px]">{student.guardianPhone || ""}</span>
+              <div className="flex items-center gap-1.5 mt-1 text-xs text-muted-foreground">
+                <span className="font-mono text-[10px]">{student.studentIdNumber}</span>
+                <span>•</span>
+                <span className="capitalize">{student.gender || "-"}</span>
+                {student.guardianPhone && (
+                  <>
+                    <span>•</span>
+                    <span className="truncate">{student.guardianPhone}</span>
+                  </>
+                )}
               </div>
             </div>
-
-            <div className="flex items-center justify-end gap-2 pt-2.5 border-t border-border/40">
+            <div className="flex items-center gap-0.5 shrink-0">
               <Button 
-                variant="outline" 
-                size="sm" 
+                variant="ghost" 
+                size="icon" 
+                className="w-8 h-8 rounded-full" 
                 onClick={() => setEditingStudent(student)} 
                 disabled={!isClassTeacherOfSelectedClass}
-                className="h-8 text-xs flex items-center gap-1.5"
               >
                 <Pencil className="w-3.5 h-3.5 text-muted-foreground" />
-                Edit
               </Button>
               <Button 
-                variant="outline" 
-                size="sm" 
+                variant="ghost" 
+                size="icon" 
+                className="w-8 h-8 rounded-full text-destructive hover:bg-destructive/5 hover:text-destructive" 
                 onClick={() => handleDelete(student.id)} 
                 disabled={!isClassTeacherOfSelectedClass}
-                className="h-8 text-xs text-destructive hover:bg-destructive/5 hover:text-destructive flex items-center gap-1.5"
               >
                 <Trash2 className="w-3.5 h-3.5" />
-                Delete
               </Button>
             </div>
           </div>
