@@ -29,18 +29,18 @@ export default function AdminDashboard() {
         <p className="text-muted-foreground text-sm">Overview of the academic structure.</p>
       </div>
 
-      <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
+      <div className="grid grid-cols-2 gap-3 sm:gap-4 lg:grid-cols-4">
         {statCards.map((stat, i) => {
           const Icon = stat.icon;
           return (
             <Card key={i} className={`text-white border-0 shadow-md hover:-translate-y-1 hover:shadow-xl transition-all duration-300 ${STAT_COLORS[i]}`}>
-              <CardContent className="p-5 flex items-center justify-between">
+              <CardContent className="p-3.5 sm:p-5 flex flex-col-reverse sm:flex-row items-stretch sm:items-center justify-between gap-2 sm:gap-0">
                 <div>
-                  <p className="text-white/80 text-sm font-medium mb-1">{stat.title}</p>
-                  <div className="text-3xl font-bold tracking-tight">{stat.value}</div>
+                  <p className="text-white/80 text-[11px] sm:text-sm font-medium leading-tight mb-0.5 sm:mb-1">{stat.title}</p>
+                  <div className="text-2xl sm:text-3xl font-bold tracking-tight">{stat.value}</div>
                 </div>
-                <div className="w-11 h-11 bg-white/10 backdrop-blur-md border border-white/20 rounded-full flex items-center justify-center shrink-0">
-                  <Icon className="h-5 w-5 text-white" />
+                <div className="w-8 h-8 sm:w-11 sm:h-11 bg-white/10 backdrop-blur-md border border-white/20 rounded-full flex items-center justify-center shrink-0 self-end sm:self-auto">
+                  <Icon className="h-4 w-4 sm:h-5 sm:w-5 text-white" />
                 </div>
               </CardContent>
             </Card>
