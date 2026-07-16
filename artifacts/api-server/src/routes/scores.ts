@@ -142,12 +142,8 @@ router.get("/scores", requireTeacher, async (req, res): Promise<void> => {
   })));
 });
 
-router.put("/scores", requireTeacher, async (req, res): Promise<void> => {
+router.put("/scores", requireTeacher, validate(UpsertScoreBody), async (req, res): Promise<void> => {
   const { studentId, assessmentComponentId, scoreValue } = req.body;
-  if (!studentId || !assessmentComponentId || scoreValue === undefined) {
-    res.status(400).json({ error: "studentId, assessmentComponentId, and scoreValue are required" });
-    return;
-  }
 
   // Enforce that this teacher is actually assigned to this component's class+subject+term
   const allowed = await teacherCanAccessComponent(
@@ -245,13 +241,8 @@ router.put("/scores", requireTeacher, async (req, res): Promise<void> => {
 
 // PUT /scores/bulk — response stays Score[] to preserve the existing API contract.
 // Entries failing access checks or bounds validation are silently skipped.
-router.put("/scores/bulk", requireTeacher, async (req, res): Promise<void> => {
+router.put("/scores/bulk", requireTeacher, validate(BulkUpsertScoresBody), async (req, res): Promise<void> => {
   const { scores } = req.body;
-  if (!Array.isArray(scores) || scores.length === 0) {
-    res.status(400).json({ error: "scores array is required" });
-    return;
-  }
-
   const results = [];
 
   for (const s of scores) {

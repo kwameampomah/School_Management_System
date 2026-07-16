@@ -2,6 +2,9 @@ import { Router, type IRouter } from "express";
 import { eq, and, inArray, sql } from "drizzle-orm";
 import { db, studentsTable, classesTable, teacherAssignmentsTable, classSubjectsTable, usersTable } from "@workspace/db";
 import { requireAuth, requireAdmin, requireTeacher } from "../middlewares/auth";
+import { validate } from "../middlewares/validation";
+import { CreateStudentBody, UpdateStudentBody } from "@workspace/api-zod";
+import { logAudit } from "../lib/audit";
 
 async function getTeacherClassIds(teacherId: number): Promise<number[]> {
   const classTeacherClasses = await db
@@ -157,14 +160,10 @@ router.get("/students", requireAuth, async (req, res): Promise<void> => {
   res.json(rows);
 });
 
-router.post("/students", requireTeacher, async (req, res): Promise<void> => {
+router.post("/students", requireTeacher, validate(CreateStudentBody), async (req, res): Promise<void> => {
   const { studentIdNumber, fullName, classId, dateOfBirth, gender, guardianName, guardianPhone, admissionDate } = req.body;
-  if (!studentIdNumber || !fullName || !classId) {
-    res.status(400).json({ error: "studentIdNumber, fullName, and classId are required" });
-    return;
-  }
 
-  const classIdNum = parseInt(classId, 10);
+  const classIdNum = parseInt(classId as any, 10);
   const allowed = await teacherCanManageStudent(req.session.role!, req.session.teacherId ?? null, classIdNum);
   if (!allowed) {
     res.status(403).json({ error: "You are not authorized to add students to this class" });
@@ -175,6 +174,9 @@ router.post("/students", requireTeacher, async (req, res): Promise<void> => {
     .insert(studentsTable)
     .values({ studentIdNumber, fullName, classId: classIdNum, dateOfBirth, gender, guardianName, guardianPhone, admissionDate })
     .returning();
+  
+  await logAudit(req.session.userId ?? null, "INSERT", "students", student.id, null, JSON.stringify(student));
+
   const row = await getStudentRow(student.id);
   res.status(201).json(row);
 });
@@ -259,7 +261,7 @@ router.get("/students/:id", requireAuth, async (req, res): Promise<void> => {
   res.json(row);
 });
 
-router.patch("/students/:id", requireTeacher, async (req, res): Promise<void> => {
+router.patch("/students/:id", requireTeacher, validate(UpdateStudentBody), async (req, res): Promise<void> => {
   const id = parseInt(Array.isArray(req.params.id) ? req.params.id[0] : req.params.id, 10);
   const { fullName, dateOfBirth, gender, classId, guardianName, guardianPhone } = req.body;
 
@@ -270,13 +272,15 @@ router.patch("/students/:id", requireTeacher, async (req, res): Promise<void> =>
   }
 
   if (classId !== undefined) {
-    const targetClassId = parseInt(classId, 10);
+    const targetClassId = parseInt(classId as any, 10);
     const targetAllowed = await teacherCanManageStudent(req.session.role!, req.session.teacherId ?? null, targetClassId);
     if (!targetAllowed) {
       res.status(403).json({ error: "You are not authorized to move student to this class" });
       return;
     }
   }
+
+  const [existing] = await db.select().from(studentsTable).where(eq(studentsTable.id, id));
 
   const updates: Record<string, unknown> = {};
   if (fullName !== undefined) updates.fullName = fullName;
@@ -291,6 +295,16 @@ router.patch("/students/:id", requireTeacher, async (req, res): Promise<void> =>
     res.status(404).json({ error: "Student not found" });
     return;
   }
+
+  await logAudit(
+    req.session.userId ?? null,
+    "UPDATE",
+    "students",
+    student.id,
+    existing ? JSON.stringify(existing) : null,
+    JSON.stringify(student)
+  );
+
   const row = await getStudentRow(id);
   res.json(row);
 });
@@ -309,6 +323,16 @@ router.delete("/students/:id", requireTeacher, async (req, res): Promise<void> =
     res.status(404).json({ error: "Student not found" });
     return;
   }
+
+  await logAudit(
+    req.session.userId ?? null,
+    "DELETE",
+    "students",
+    student.id,
+    JSON.stringify(student),
+    null
+  );
+
   res.json({ ok: true });
 });
 
