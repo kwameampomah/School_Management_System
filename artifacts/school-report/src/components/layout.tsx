@@ -149,18 +149,32 @@ export function AppLayout({
   // Close mobile menu and scroll to top on route change
   useEffect(() => {
     setMobileOpen(false);
-    if (scrollRef.current) {
-      scrollRef.current.scrollTop = 0;
-    }
     
-    // Asynchronous double-reset: ensures scroll to top succeeds even if new route initially renders a short loading state
-    const timer = setTimeout(() => {
+    const resetScroll = () => {
+      // 1. Reset main layout scroll ref
       if (scrollRef.current) {
         scrollRef.current.scrollTop = 0;
       }
-    }, 150);
+      // 2. Reset global window scroll
+      window.scrollTo(0, 0);
+      // 3. Sweep and reset all scrollable overflow containers in the DOM
+      const scrollables = document.querySelectorAll(".overflow-y-auto, .overflow-auto");
+      scrollables.forEach(el => {
+        el.scrollTop = 0;
+      });
+    };
+
+    resetScroll();
     
-    return () => clearTimeout(timer);
+    // Multiple timed iterations to catch and reset scrolls during async data load and layout shift transitions
+    const timers = [
+      setTimeout(resetScroll, 50),
+      setTimeout(resetScroll, 150),
+      setTimeout(resetScroll, 300),
+      setTimeout(resetScroll, 600),
+    ];
+    
+    return () => timers.forEach(clearTimeout);
   }, [location]);
 
   if (isLoading) {
