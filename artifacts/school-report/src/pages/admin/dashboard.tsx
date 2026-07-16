@@ -2,11 +2,27 @@ import { useGetAdminDashboardSummary } from "@workspace/api-client-react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Loader2, Users, GraduationCap, BookOpen, FileText } from "lucide-react";
 
-const STAT_COLORS = [
-  "bg-gradient-to-br from-violet-600 to-indigo-700 shadow-indigo-500/20",
-  "bg-gradient-to-br from-emerald-500 to-teal-600 shadow-teal-500/20",
-  "bg-gradient-to-br from-amber-500 to-orange-600 shadow-orange-500/20",
-  "bg-gradient-to-br from-rose-500 to-pink-600 shadow-pink-500/20",
+const STAT_THEMES = [
+  { // Violet/Indigo (Students)
+    hoverBorder: "hover:border-violet-500/30",
+    iconBg: "bg-violet-500/10 border-violet-500/20",
+    iconColor: "text-violet-600 dark:text-violet-400"
+  },
+  { // Emerald/Teal (Teachers)
+    hoverBorder: "hover:border-emerald-500/30",
+    iconBg: "bg-emerald-500/10 border-emerald-500/20",
+    iconColor: "text-emerald-600 dark:text-emerald-400"
+  },
+  { // Amber/Orange (Classes)
+    hoverBorder: "hover:border-amber-500/30",
+    iconBg: "bg-amber-500/10 border-amber-500/20",
+    iconColor: "text-amber-600 dark:text-amber-400"
+  },
+  { // Rose/Pink (Subjects)
+    hoverBorder: "hover:border-rose-500/30",
+    iconBg: "bg-rose-500/10 border-rose-500/20",
+    iconColor: "text-rose-600 dark:text-rose-400"
+  }
 ];
 
 export default function AdminDashboard() {
@@ -32,15 +48,16 @@ export default function AdminDashboard() {
       <div className="grid grid-cols-2 gap-3 sm:gap-4 lg:grid-cols-4">
         {statCards.map((stat, i) => {
           const Icon = stat.icon;
+          const theme = STAT_THEMES[i];
           return (
-            <Card key={i} className={`text-white border-0 shadow-md hover:-translate-y-1 hover:shadow-xl transition-all duration-300 ${STAT_COLORS[i]}`}>
+            <Card key={i} className={`bg-card text-card-foreground border border-border/80 shadow-sm hover:shadow-md hover:-translate-y-0.5 transition-all duration-300 ${theme.hoverBorder}`}>
               <CardContent className="p-3.5 sm:p-5 flex flex-col-reverse sm:flex-row items-stretch sm:items-center justify-between gap-2 sm:gap-0">
                 <div>
-                  <p className="text-white/80 text-[11px] sm:text-sm font-medium leading-tight mb-0.5 sm:mb-1">{stat.title}</p>
-                  <div className="text-2xl sm:text-3xl font-bold tracking-tight">{stat.value}</div>
+                  <p className="text-muted-foreground text-[11px] sm:text-sm font-medium leading-tight mb-0.5 sm:mb-1">{stat.title}</p>
+                  <div className="text-2xl sm:text-3xl font-bold tracking-tight text-foreground">{stat.value}</div>
                 </div>
-                <div className="w-8 h-8 sm:w-11 sm:h-11 bg-white/10 backdrop-blur-md border border-white/20 rounded-full flex items-center justify-center shrink-0 self-end sm:self-auto">
-                  <Icon className="h-4 w-4 sm:h-5 sm:w-5 text-white" />
+                <div className={`w-8 h-8 sm:w-11 sm:h-11 border rounded-full flex items-center justify-center shrink-0 self-end sm:self-auto ${theme.iconBg}`}>
+                  <Icon className={`h-4 w-4 sm:h-5 sm:w-5 ${theme.iconColor}`} />
                 </div>
               </CardContent>
             </Card>

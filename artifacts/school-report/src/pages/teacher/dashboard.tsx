@@ -40,29 +40,41 @@ export default function TeacherDashboard() {
       </div>
 
       <div className="grid grid-cols-2 gap-3 sm:gap-6">
-        <Card className="bg-gradient-to-br from-violet-600 to-indigo-700 text-white border-0 shadow-md shadow-indigo-500/10 hover:shadow-xl hover:shadow-indigo-500/25 hover:-translate-y-1 transition-all duration-300">
+        {/* Students Card - Neutral Container with Soft Indigo Accent */}
+        <Card className="bg-card text-card-foreground border border-border/80 shadow-sm hover:shadow-md hover:border-violet-500/30 hover:-translate-y-0.5 transition-all duration-300">
           <CardContent className="p-4 sm:p-6 flex flex-col-reverse sm:flex-row items-stretch sm:items-center justify-between gap-2.5 sm:gap-0">
             <div className="space-y-0.5">
-              <p className="text-indigo-100 text-[11px] sm:text-sm font-medium leading-tight">Students Under Your Care</p>
-              <h2 className="text-2xl sm:text-4xl font-bold tracking-tight">{summary.totalStudentsInCharge}</h2>
+              <p className="text-muted-foreground text-[11px] sm:text-sm font-medium leading-tight">Students Under Your Care</p>
+              <h2 className="text-2xl sm:text-4xl font-bold tracking-tight text-foreground">{summary.totalStudentsInCharge}</h2>
             </div>
-            <div className="w-9 h-9 sm:w-12 sm:h-12 bg-white/10 backdrop-blur-md border border-white/20 rounded-full flex items-center justify-center self-end sm:self-auto shrink-0">
-              <BookOpen className="w-4.5 h-4.5 sm:w-6 sm:h-6 text-white" />
+            <div className="w-9 h-9 sm:w-12 sm:h-12 bg-violet-500/10 border border-violet-500/20 rounded-full flex items-center justify-center self-end sm:self-auto shrink-0">
+              <BookOpen className="w-4.5 h-4.5 sm:w-6 sm:h-6 text-violet-600 dark:text-violet-400" />
             </div>
           </CardContent>
         </Card>
 
+        {/* Pending Scores Card - High-contrast Alert/Success Tint */}
         <Card className={summary.pendingScoreEntries > 0 
-          ? "bg-gradient-to-br from-amber-500 to-orange-600 text-white border-0 shadow-md shadow-orange-500/10 hover:shadow-xl hover:shadow-orange-500/25 hover:-translate-y-1 transition-all duration-300"
-          : "bg-gradient-to-br from-emerald-500 to-teal-600 text-white border-0 shadow-md shadow-teal-500/10 hover:shadow-xl hover:shadow-teal-500/25 hover:-translate-y-1 transition-all duration-300"
+          ? "bg-amber-500/5 text-amber-800 dark:text-amber-400 border border-amber-500/20 shadow-sm hover:shadow-md hover:border-amber-500/35 hover:-translate-y-0.5 transition-all duration-300"
+          : "bg-card text-card-foreground border border-border/80 shadow-sm hover:shadow-md hover:border-emerald-500/30 hover:-translate-y-0.5 transition-all duration-300"
         }>
           <CardContent className="p-4 sm:p-6 flex flex-col-reverse sm:flex-row items-stretch sm:items-center justify-between gap-2.5 sm:gap-0">
             <div className="space-y-0.5">
-              <p className="text-white/90 text-[11px] sm:text-sm font-medium leading-tight">Pending Score Entries</p>
-              <h2 className="text-2xl sm:text-4xl font-bold tracking-tight">{summary.pendingScoreEntries}</h2>
+              <p className={summary.pendingScoreEntries > 0 ? "text-amber-600 dark:text-amber-400 text-[11px] sm:text-sm font-medium leading-tight" : "text-muted-foreground text-[11px] sm:text-sm font-medium leading-tight"}>
+                Pending Score Entries
+              </p>
+              <h2 className={summary.pendingScoreEntries > 0 ? "text-2xl sm:text-4xl font-bold tracking-tight text-amber-700 dark:text-amber-300" : "text-2xl sm:text-4xl font-bold tracking-tight text-foreground"}>
+                {summary.pendingScoreEntries}
+              </h2>
             </div>
-            <div className="w-9 h-9 sm:w-12 sm:h-12 bg-white/10 backdrop-blur-md border border-white/20 rounded-full flex items-center justify-center self-end sm:self-auto shrink-0">
-              {summary.pendingScoreEntries > 0 ? <AlertCircle className="w-4.5 h-4.5 sm:w-6 sm:h-6 text-white" /> : <CheckCircle className="w-4.5 h-4.5 sm:w-6 sm:h-6 text-white" />}
+            <div className={summary.pendingScoreEntries > 0 
+              ? "w-9 h-9 sm:w-12 sm:h-12 bg-amber-500/15 border border-amber-500/25 rounded-full flex items-center justify-center self-end sm:self-auto shrink-0"
+              : "w-9 h-9 sm:w-12 sm:h-12 bg-emerald-500/10 border border-emerald-500/20 rounded-full flex items-center justify-center self-end sm:self-auto shrink-0"
+            }>
+              {summary.pendingScoreEntries > 0 
+                ? <AlertCircle className="w-4.5 h-4.5 sm:w-6 sm:h-6 text-amber-600 dark:text-amber-400" /> 
+                : <CheckCircle className="w-4.5 h-4.5 sm:w-6 sm:h-6 text-emerald-600 dark:text-emerald-400" />
+              }
             </div>
           </CardContent>
         </Card>
