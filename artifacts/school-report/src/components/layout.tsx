@@ -1,5 +1,5 @@
 import { Link, useLocation } from "wouter";
-import { useEffect, useState, useMemo } from "react";
+import { useEffect, useState, useMemo, useRef } from "react";
 import { useGetMe, useLogout } from "@workspace/api-client-react";
 import {
   Loader2, LogOut, BookOpen, Users, GraduationCap, LayoutDashboard,
@@ -129,6 +129,7 @@ export function AppLayout({
   const [location, setLocation] = useLocation();
   const [mobileOpen, setMobileOpen] = useState(false);
   const { theme, toggleTheme } = useTheme();
+  const scrollRef = useRef<HTMLDivElement>(null);
 
   const bottomItems = useMemo(() => {
     const items = navItems[role];
@@ -145,9 +146,12 @@ export function AppLayout({
     }
   }, [user, isLoading, role, setLocation]);
 
-  // Close mobile menu on route change
+  // Close mobile menu and scroll to top on route change
   useEffect(() => {
     setMobileOpen(false);
+    if (scrollRef.current) {
+      scrollRef.current.scrollTop = 0;
+    }
   }, [location]);
 
   if (isLoading) {
@@ -220,13 +224,6 @@ export function AppLayout({
         <main className="flex-1 flex flex-col min-w-0 overflow-hidden">
         {/* Mobile Header */}
         <header className="h-12 sm:h-14 border-b bg-card flex items-center px-3 sm:px-4 md:hidden shrink-0">  
-          <button
-            onClick={() => setMobileOpen(true)}
-            className="p-2 rounded-md hover:bg-muted transition-colors mr-2"
-            aria-label="Open menu"
-          >
-            <Menu className="w-5 h-5" />
-          </button>
           <div className="font-bold text-primary text-sm sm:text-base truncate">Taifa Ebenezer School</div>
           <div className="ml-auto flex items-center gap-1 shrink-0">
             <button
@@ -242,7 +239,7 @@ export function AppLayout({
           </div>
         </header>
 
-        <div className="flex-1 overflow-y-auto p-3 pb-20 sm:p-5 md:p-8">
+        <div ref={scrollRef} className="flex-1 overflow-y-auto p-3 pb-20 sm:p-5 md:p-8">
           <div className="max-w-7xl mx-auto space-y-6">
             {children}
           </div>
