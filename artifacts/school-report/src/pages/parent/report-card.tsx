@@ -2,7 +2,7 @@ import { useRoute, Link } from "wouter";
 import { useGetStudentReportCard, useGetStudent, useListTerms } from "@workspace/api-client-react";
 import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
-import { Loader2, ArrowLeft, Printer } from "lucide-react";
+import { Loader2, ArrowLeft, Printer, Download } from "lucide-react";
 import StudentReportCardView from "@/components/StudentReportCardView";
 
 export default function SingleReportCardPage() {
@@ -43,10 +43,18 @@ export default function SingleReportCardPage() {
         <Link href="/parent" className="inline-flex items-center text-sm text-muted-foreground hover:text-primary transition-colors">
           <ArrowLeft className="w-4 h-4 mr-1" /> Back
         </Link>
-        <Button onClick={() => window.print()} size="sm">
-          <Printer className="w-4 h-4 sm:mr-2" />
-          <span className="hidden sm:inline">Print</span>
-        </Button>
+        <div className="flex items-center gap-2">
+          <Button onClick={() => window.print()} variant="outline" size="sm">
+            <Printer className="w-4 h-4 sm:mr-2" />
+            <span className="hidden sm:inline">Print</span>
+          </Button>
+          <a href={`/api/report-cards/${studentId}/${termId}/export`} download>
+            <Button size="sm">
+              <Download className="w-4 h-4 sm:mr-2" />
+              <span className="hidden sm:inline">Download PDF</span>
+            </Button>
+          </a>
+        </div>
       </div>
 
       <StudentReportCardView reportCard={reportCard} />

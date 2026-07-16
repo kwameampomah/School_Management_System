@@ -9,7 +9,7 @@ import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
 import { useToast } from "@/hooks/use-toast";
 import { useQueryClient } from "@tanstack/react-query";
-import { Loader2, ArrowLeft, Printer, MessageSquare, Mail, Settings2 } from "lucide-react";
+import { Loader2, ArrowLeft, Printer, MessageSquare, Mail, Settings2, Download } from "lucide-react";
 import StudentReportCardView from "@/components/StudentReportCardView";
 
 export default function ClassReportCardsPage() {
@@ -111,7 +111,7 @@ export default function ClassReportCardsPage() {
                   >
                     <Settings2 className="w-4 h-4 mr-1.5" /> Attendance & Traits
                   </Button>
-                  <div className="grid grid-cols-2 gap-2 w-full sm:flex sm:w-auto">
+                  <div className="grid grid-cols-3 gap-2 w-full sm:flex sm:w-auto">
                     <Button 
                       size="sm" 
                       variant="outline"
@@ -124,7 +124,8 @@ export default function ClassReportCardsPage() {
                       ) : (
                         <MessageSquare className="w-4 h-4 mr-1.5" />
                       )}
-                      WhatsApp
+                      <span className="hidden xs:inline">WhatsApp</span>
+                      <span className="xs:hidden">WA</span>
                     </Button>
                     <Button 
                       size="sm" 
@@ -140,6 +141,16 @@ export default function ClassReportCardsPage() {
                       )}
                       Email
                     </Button>
+                    <a href={`/api/report-cards/${rc.studentId}/${termId}/export`} download className="w-full">
+                      <Button 
+                        size="sm" 
+                        variant="outline"
+                        className="w-full"
+                      >
+                        <Download className="w-4 h-4 mr-1.5" />
+                        PDF
+                      </Button>
+                    </a>
                   </div>
                 </div>
               </CardContent>
