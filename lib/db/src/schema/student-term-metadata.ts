@@ -1,4 +1,4 @@
-import { pgTable, serial, integer, text } from "drizzle-orm/pg-core";
+import { pgTable, serial, integer, text, index } from "drizzle-orm/pg-core";
 import { studentsTable } from "./students";
 import { termsTable } from "./terms";
 
@@ -17,7 +17,10 @@ export const studentTermMetadataTable = pgTable("student_term_metadata", {
   interest: text("interest"),
   teacherRemarks: text("teacher_remarks"),
   headmasterRemarks: text("headmaster_remarks"),
-});
+}, (table) => [
+  index("student_term_metadata_student_id_idx").on(table.studentId),
+  index("student_term_metadata_term_id_idx").on(table.termId),
+]);
 
 export type StudentTermMetadata = typeof studentTermMetadataTable.$inferSelect;
 export type InsertStudentTermMetadata = typeof studentTermMetadataTable.$inferInsert;

@@ -2,6 +2,9 @@ import { Router, type IRouter } from "express";
 import { eq, and } from "drizzle-orm";
 import { db, teachersTable, usersTable, teacherAssignmentsTable, classSubjectsTable, classesTable, subjectsTable, termsTable } from "@workspace/db";
 import { requireAuth, requireAdmin } from "../middlewares/auth";
+import { validate } from "../middlewares/validation";
+import { CreateTeacherAssignmentBody } from "@workspace/api-zod";
+import { logAudit } from "../lib/audit";
 
 const router: IRouter = Router();
 
@@ -75,17 +78,15 @@ router.get("/teacher-assignments", requireAuth, async (req, res): Promise<void> 
   res.json(rows);
 });
 
-router.post("/teacher-assignments", requireAdmin, async (req, res): Promise<void> => {
+router.post("/teacher-assignments", requireAdmin, validate(CreateTeacherAssignmentBody), async (req, res): Promise<void> => {
   const { teacherId, classSubjectId, termId } = req.body;
-  if (!teacherId || !classSubjectId || !termId) {
-    res.status(400).json({ error: "teacherId, classSubjectId, and termId are required" });
-    return;
-  }
 
   const [assignment] = await db
     .insert(teacherAssignmentsTable)
     .values({ teacherId, classSubjectId, termId })
     .returning();
+
+  await logAudit(req.session.userId ?? null, "INSERT", "teacher_assignments", assignment.id, null, JSON.stringify(assignment));
 
   const [row] = await db
     .select({
@@ -120,6 +121,8 @@ router.delete("/teacher-assignments/:id", requireAdmin, async (req, res): Promis
     res.status(404).json({ error: "Teacher assignment not found" });
     return;
   }
+
+  await logAudit(req.session.userId ?? null, "DELETE", "teacher_assignments", assignment.id, JSON.stringify(assignment), null);
   res.json({ ok: true });
 });
 

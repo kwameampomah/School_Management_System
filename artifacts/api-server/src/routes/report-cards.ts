@@ -17,6 +17,9 @@ import {
   usersTable,
 } from "@workspace/db";
 import { requireAuth, requireAdmin, requireTeacher } from "../middlewares/auth";
+import { validate } from "../middlewares/validation";
+import { UpdateReportCardStatusBody } from "@workspace/api-zod";
+import { logAudit } from "../lib/audit";
 
 const router: IRouter = Router();
 
@@ -127,16 +130,12 @@ router.get("/report-card-status", requireAuth, async (req, res): Promise<void> =
   res.json(rows);
 });
 
-router.patch("/report-card-status/:id", requireAuth, async (req, res): Promise<void> => {
+router.patch("/report-card-status/:id", requireAuth, validate(UpdateReportCardStatusBody), async (req, res): Promise<void> => {
   const id = parseInt(Array.isArray(req.params.id) ? req.params.id[0] : req.params.id, 10);
   const { status } = req.body;
-  if (!status) {
-    res.status(400).json({ error: "status is required" });
-    return;
-  }
 
   const [rcsRow] = await db
-    .select({ classId: reportCardStatusTable.classId })
+    .select()
     .from(reportCardStatusTable)
     .where(eq(reportCardStatusTable.id, id));
 
@@ -170,6 +169,15 @@ router.patch("/report-card-status/:id", requireAuth, async (req, res): Promise<v
     res.status(404).json({ error: "Report card status not found" });
     return;
   }
+
+  await logAudit(
+    req.session.userId ?? null,
+    "UPDATE",
+    "report_card_status",
+    rcs.id,
+    JSON.stringify(rcsRow),
+    JSON.stringify(rcs)
+  );
 
   const [row] = await db
     .select({
@@ -230,6 +238,15 @@ router.post(
       .insert(reportCardStatusTable)
       .values({ classId, termId, status: "draft" })
       .returning();
+
+    await logAudit(
+      req.session.userId ?? null,
+      "INSERT",
+      "report_card_status",
+      rcs.id,
+      null,
+      JSON.stringify(rcs)
+    );
 
     const [row] = await db
       .select({

@@ -2,8 +2,23 @@ import { Router, type IRouter } from "express";
 import { eq, and } from "drizzle-orm";
 import { db, studentTermMetadataTable, studentsTable } from "@workspace/db";
 import { requireTeacher } from "../middlewares/auth";
+import { validate } from "../middlewares/validation";
+import { z } from "zod";
+import { logAudit } from "../lib/audit";
 
 const router: IRouter = Router();
+
+const UpsertStudentTermMetadataBody = z.object({
+  studentId: z.number(),
+  termId: z.number(),
+  daysOpened: z.number().optional(),
+  daysPresent: z.number().optional(),
+  conduct: z.string().nullish(),
+  attitude: z.string().nullish(),
+  interest: z.string().nullish(),
+  teacherRemarks: z.string().nullish(),
+  headmasterRemarks: z.string().nullish(),
+});
 
 router.get("/student-term-metadata", requireTeacher, async (req, res): Promise<void> => {
   const termId = req.query.termId ? parseInt(req.query.termId as string, 10) : null;
@@ -40,7 +55,7 @@ router.get("/student-term-metadata", requireTeacher, async (req, res): Promise<v
   res.json(rows);
 });
 
-router.put("/student-term-metadata", requireTeacher, async (req, res): Promise<void> => {
+router.put("/student-term-metadata", requireTeacher, validate(UpsertStudentTermMetadataBody), async (req, res): Promise<void> => {
   const {
     studentId,
     termId,
@@ -52,11 +67,6 @@ router.put("/student-term-metadata", requireTeacher, async (req, res): Promise<v
     teacherRemarks,
     headmasterRemarks,
   } = req.body;
-
-  if (!studentId || !termId) {
-    res.status(400).json({ error: "studentId and termId are required" });
-    return;
-  }
 
   // Check if existing record
   const [existing] = await db
@@ -94,6 +104,15 @@ router.put("/student-term-metadata", requireTeacher, async (req, res): Promise<v
       .values(payload)
       .returning();
   }
+
+  await logAudit(
+    req.session.userId ?? null,
+    existing ? "UPDATE" : "INSERT",
+    "student_term_metadata",
+    result.id,
+    existing ? JSON.stringify(existing) : null,
+    JSON.stringify(result)
+  );
 
   res.json(result);
 });

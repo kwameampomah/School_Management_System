@@ -2,16 +2,18 @@ import { Router, type IRouter } from "express";
 import { eq, inArray } from "drizzle-orm";
 import { db, studentsTable, auditLogsTable } from "@workspace/db";
 import { requireAdmin } from "../middlewares/auth";
+import { validate } from "../middlewares/validation";
+import { z } from "zod";
 
 const router: IRouter = Router();
 
-router.post("/promotions/bulk", requireAdmin, async (req, res): Promise<void> => {
-  const { studentIds, targetClassId } = req.body;
+const BulkPromotionBody = z.object({
+  studentIds: z.array(z.number()),
+  targetClassId: z.coerce.number(),
+});
 
-  if (!Array.isArray(studentIds) || studentIds.length === 0 || !targetClassId) {
-    res.status(400).json({ error: "studentIds array and targetClassId are required" });
-    return;
-  }
+router.post("/promotions/bulk", requireAdmin, validate(BulkPromotionBody), async (req, res): Promise<void> => {
+  const { studentIds, targetClassId } = req.body;
 
   try {
     const numericTargetClassId = parseInt(targetClassId, 10);

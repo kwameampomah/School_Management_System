@@ -1,4 +1,4 @@
-import { pgTable, serial, integer, timestamp, pgEnum } from "drizzle-orm/pg-core";
+import { pgTable, serial, integer, timestamp, pgEnum, index } from "drizzle-orm/pg-core";
 import { createInsertSchema } from "drizzle-zod";
 import { z } from "zod/v4";
 import { classesTable } from "./classes";
@@ -23,7 +23,11 @@ export const reportCardStatusTable = pgTable("report_card_status", {
   status: reportCardStatusEnum("status").notNull().default("draft"),
   approvedBy: integer("approved_by").references(() => usersTable.id, { onDelete: "set null" }),
   approvedAt: timestamp("approved_at", { withTimezone: true }),
-});
+}, (table) => [
+  index("report_card_status_class_id_idx").on(table.classId),
+  index("report_card_status_term_id_idx").on(table.termId),
+  index("report_card_status_approved_by_idx").on(table.approvedBy),
+]);
 
 export const insertReportCardStatusSchema = createInsertSchema(reportCardStatusTable).omit({
   id: true,

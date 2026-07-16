@@ -2,6 +2,8 @@ import { Router, type IRouter } from "express";
 import { eq, sql } from "drizzle-orm";
 import { db, classesTable, academicYearsTable, teachersTable, usersTable, classSubjectsTable, subjectsTable } from "@workspace/db";
 import { requireAuth, requireAdmin } from "../middlewares/auth";
+import { validate } from "../middlewares/validation";
+import { CreateClassBody, UpdateClassBody, AddClassSubjectBody } from "@workspace/api-zod";
 
 const router: IRouter = Router();
 
@@ -49,12 +51,8 @@ router.get("/classes", requireAuth, async (req, res): Promise<void> => {
   res.json(rows);
 });
 
-router.post("/classes", requireAdmin, async (req, res): Promise<void> => {
+router.post("/classes", requireAdmin, validate(CreateClassBody), async (req, res): Promise<void> => {
   const { name, academicYearId, classTeacherId } = req.body;
-  if (!name || !academicYearId) {
-    res.status(400).json({ error: "name and academicYearId are required" });
-    return;
-  }
   const [cls] = await db
     .insert(classesTable)
     .values({ name, academicYearId, classTeacherId: classTeacherId ?? null })
@@ -73,7 +71,7 @@ router.get("/classes/:id", requireAuth, async (req, res): Promise<void> => {
   res.json(row);
 });
 
-router.patch("/classes/:id", requireAdmin, async (req, res): Promise<void> => {
+router.patch("/classes/:id", requireAdmin, validate(UpdateClassBody), async (req, res): Promise<void> => {
   const id = parseInt(Array.isArray(req.params.id) ? req.params.id[0] : req.params.id, 10);
   const { name, classTeacherId } = req.body;
   const updates: Record<string, unknown> = {};
@@ -117,13 +115,9 @@ router.get("/classes/:id/subjects", requireAuth, async (req, res): Promise<void>
   res.json(rows);
 });
 
-router.post("/classes/:id/subjects", requireAdmin, async (req, res): Promise<void> => {
+router.post("/classes/:id/subjects", requireAdmin, validate(AddClassSubjectBody), async (req, res): Promise<void> => {
   const classId = parseInt(Array.isArray(req.params.id) ? req.params.id[0] : req.params.id, 10);
   const { subjectId } = req.body;
-  if (!subjectId) {
-    res.status(400).json({ error: "subjectId is required" });
-    return;
-  }
   const [cs] = await db.insert(classSubjectsTable).values({ classId, subjectId }).returning();
   const [row] = await db
     .select({

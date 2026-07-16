@@ -2,6 +2,9 @@ import { Router, type IRouter } from "express";
 import { eq, and } from "drizzle-orm";
 import { db, assessmentComponentsTable, classSubjectsTable, subjectsTable } from "@workspace/db";
 import { requireAuth, requireAdmin } from "../middlewares/auth";
+import { validate } from "../middlewares/validation";
+import { CreateAssessmentComponentBody, UpdateAssessmentComponentBody } from "@workspace/api-zod";
+import { logAudit } from "../lib/audit";
 
 const router: IRouter = Router();
 
@@ -37,16 +40,15 @@ router.get("/assessment-components", requireAuth, async (req, res): Promise<void
   })));
 });
 
-router.post("/assessment-components", requireAdmin, async (req, res): Promise<void> => {
+router.post("/assessment-components", requireAdmin, validate(CreateAssessmentComponentBody), async (req, res): Promise<void> => {
   const { classSubjectId, termId, name, weightPercent, maxScore } = req.body;
-  if (!classSubjectId || !termId || !name || weightPercent === undefined || maxScore === undefined) {
-    res.status(400).json({ error: "All fields are required" });
-    return;
-  }
+
   const [comp] = await db
     .insert(assessmentComponentsTable)
     .values({ classSubjectId, termId, name, weightPercent: String(weightPercent), maxScore: String(maxScore) })
     .returning();
+
+  await logAudit(req.session.userId ?? null, "INSERT", "assessment_components", comp.id, null, JSON.stringify(comp));
 
   const [row] = await db
     .select({
@@ -66,9 +68,12 @@ router.post("/assessment-components", requireAdmin, async (req, res): Promise<vo
   res.status(201).json({ ...row, weightPercent: parseFloat(row!.weightPercent as unknown as string), maxScore: parseFloat(row!.maxScore as unknown as string) });
 });
 
-router.patch("/assessment-components/:id", requireAdmin, async (req, res): Promise<void> => {
+router.patch("/assessment-components/:id", requireAdmin, validate(UpdateAssessmentComponentBody), async (req, res): Promise<void> => {
   const id = parseInt(Array.isArray(req.params.id) ? req.params.id[0] : req.params.id, 10);
   const { name, weightPercent, maxScore } = req.body;
+
+  const [existing] = await db.select().from(assessmentComponentsTable).where(eq(assessmentComponentsTable.id, id));
+
   const updates: Record<string, unknown> = {};
   if (name !== undefined) updates.name = name;
   if (weightPercent !== undefined) updates.weightPercent = String(weightPercent);
@@ -83,6 +88,15 @@ router.patch("/assessment-components/:id", requireAdmin, async (req, res): Promi
     res.status(404).json({ error: "Assessment component not found" });
     return;
   }
+
+  await logAudit(
+    req.session.userId ?? null,
+    "UPDATE",
+    "assessment_components",
+    comp.id,
+    existing ? JSON.stringify(existing) : null,
+    JSON.stringify(comp)
+  );
 
   const [row] = await db
     .select({
@@ -112,6 +126,16 @@ router.delete("/assessment-components/:id", requireAdmin, async (req, res): Prom
     res.status(404).json({ error: "Assessment component not found" });
     return;
   }
+
+  await logAudit(
+    req.session.userId ?? null,
+    "DELETE",
+    "assessment_components",
+    comp.id,
+    JSON.stringify(comp),
+    null
+  );
+
   res.json({ ok: true });
 });
 

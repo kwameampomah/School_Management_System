@@ -2,16 +2,20 @@ import { Router, type IRouter } from "express";
 import { eq } from "drizzle-orm";
 import { db, studentsTable, termsTable } from "@workspace/db";
 import { requireTeacher } from "../middlewares/auth";
+import { validate } from "../middlewares/validation";
+import { z } from "zod";
+import { logAudit } from "../lib/audit";
 
 const router: IRouter = Router();
 
-router.post("/notifications/send-report-card", requireTeacher, async (req, res): Promise<void> => {
-  const { studentId, termId, channel } = req.body;
+const SendReportCardNotificationBody = z.object({
+  studentId: z.coerce.number(),
+  termId: z.coerce.number(),
+  channel: z.enum(["whatsapp", "email"]),
+});
 
-  if (!studentId || !termId || !channel) {
-    res.status(400).json({ error: "studentId, termId, and channel are required" });
-    return;
-  }
+router.post("/notifications/send-report-card", requireTeacher, validate(SendReportCardNotificationBody), async (req, res): Promise<void> => {
+  const { studentId, termId, channel } = req.body;
 
   // Fetch student and term info
   const [student] = await db
@@ -42,6 +46,15 @@ router.post("/notifications/send-report-card", requireTeacher, async (req, res):
     console.log(`Click this link to download the PDF: http://localhost:3000/parent/report-cards/${student.id}/${term.id}`);
     console.log(`======================================================\n`);
     
+    await logAudit(
+      req.session.userId ?? null,
+      "INSERT",
+      "notifications",
+      student.id,
+      null,
+      `Sent WhatsApp report card notification for student ${student.fullName} to ${phone}`
+    );
+
     res.json({ ok: true, channel: "whatsapp", target: phone });
   } else if (channel === "email") {
     // Generate a simulated email destination
@@ -54,6 +67,15 @@ router.post("/notifications/send-report-card", requireTeacher, async (req, res):
     console.log(`Body: Hello ${parentName},\n\nPlease find attached the terminal report card PDF for ${name}.`);
     console.log(`URL: http://localhost:3000/parent/report-cards/${student.id}/${term.id}`);
     console.log(`======================================================\n`);
+
+    await logAudit(
+      req.session.userId ?? null,
+      "INSERT",
+      "notifications",
+      student.id,
+      null,
+      `Sent Email report card notification for student ${student.fullName} to ${email}`
+    );
 
     res.json({ ok: true, channel: "email", target: email });
   } else {

@@ -2,6 +2,8 @@ import { Router, type IRouter } from "express";
 import { eq } from "drizzle-orm";
 import { db, academicYearsTable } from "@workspace/db";
 import { requireAuth, requireAdmin } from "../middlewares/auth";
+import { validate } from "../middlewares/validation";
+import { CreateAcademicYearBody, UpdateAcademicYearBody } from "@workspace/api-zod";
 
 const router: IRouter = Router();
 
@@ -13,12 +15,8 @@ router.get("/academic-years", requireAuth, async (_req, res): Promise<void> => {
   res.json(years);
 });
 
-router.post("/academic-years", requireAdmin, async (req, res): Promise<void> => {
+router.post("/academic-years", requireAdmin, validate(CreateAcademicYearBody), async (req, res): Promise<void> => {
   const { yearLabel, isCurrent } = req.body;
-  if (!yearLabel) {
-    res.status(400).json({ error: "yearLabel is required" });
-    return;
-  }
 
   if (isCurrent) {
     await db.update(academicYearsTable).set({ isCurrent: false });
@@ -44,7 +42,7 @@ router.get("/academic-years/:id", requireAuth, async (req, res): Promise<void> =
   res.json(year);
 });
 
-router.patch("/academic-years/:id", requireAdmin, async (req, res): Promise<void> => {
+router.patch("/academic-years/:id", requireAdmin, validate(UpdateAcademicYearBody), async (req, res): Promise<void> => {
   const id = parseInt(Array.isArray(req.params.id) ? req.params.id[0] : req.params.id, 10);
   const { yearLabel, isCurrent } = req.body;
 

@@ -1,4 +1,4 @@
-import { pgTable, serial, text, integer } from "drizzle-orm/pg-core";
+import { pgTable, serial, text, integer, index } from "drizzle-orm/pg-core";
 import { createInsertSchema } from "drizzle-zod";
 import { z } from "zod/v4";
 import { academicYearsTable } from "./academic-years";
@@ -13,7 +13,10 @@ export const classesTable = pgTable("classes", {
   classTeacherId: integer("class_teacher_id").references(() => teachersTable.id, {
     onDelete: "set null",
   }),
-});
+}, (table) => [
+  index("classes_academic_year_id_idx").on(table.academicYearId),
+  index("classes_class_teacher_id_idx").on(table.classTeacherId),
+]);
 
 export const insertClassSchema = createInsertSchema(classesTable).omit({ id: true });
 export type InsertClass = z.infer<typeof insertClassSchema>;

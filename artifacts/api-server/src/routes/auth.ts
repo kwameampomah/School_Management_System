@@ -4,6 +4,9 @@ import { eq } from "drizzle-orm";
 import { rateLimit } from "express-rate-limit";
 import { db, usersTable, teachersTable } from "@workspace/db";
 import { requireAuth } from "../middlewares/auth";
+import { validate } from "../middlewares/validation";
+import { LoginBody } from "@workspace/api-zod";
+import { logAudit } from "../lib/audit";
 
 // Brute-force protection: max 5 failed attempts per 15 minutes per IP
 const loginRateLimiter = rateLimit({
@@ -17,12 +20,8 @@ const loginRateLimiter = rateLimit({
 
 const router: IRouter = Router();
 
-router.post("/auth/login", loginRateLimiter, async (req, res): Promise<void> => {
+router.post("/auth/login", loginRateLimiter, validate(LoginBody), async (req, res): Promise<void> => {
   const { email, password } = req.body;
-  if (!email || !password) {
-    res.status(400).json({ error: "Email and password required" });
-    return;
-  }
 
   let user;
   try {
@@ -60,6 +59,8 @@ router.post("/auth/login", loginRateLimiter, async (req, res): Promise<void> => 
   req.session.role = user.role;
   req.session.teacherId = teacherId;
 
+  await logAudit(user.id, "UPDATE", "users", user.id, null, "User logged in successfully");
+
   res.json({
     id: user.id,
     fullName: user.fullName,
@@ -69,8 +70,12 @@ router.post("/auth/login", loginRateLimiter, async (req, res): Promise<void> => 
   });
 });
 
-router.post("/auth/logout", (req, res): void => {
-  req.session.destroy(() => {
+router.post("/auth/logout", async (req, res): Promise<void> => {
+  const userId = req.session.userId ?? null;
+  req.session.destroy(async () => {
+    if (userId) {
+      await logAudit(userId, "UPDATE", "users", userId, null, "User logged out");
+    }
     res.json({ ok: true });
   });
 });
