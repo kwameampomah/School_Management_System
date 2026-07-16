@@ -14,6 +14,7 @@ import {
   academicYearsTable,
   teacherAssignmentsTable,
   studentTermMetadataTable,
+  usersTable,
 } from "@workspace/db";
 import { requireAuth, requireAdmin, requireTeacher } from "../middlewares/auth";
 
@@ -311,7 +312,12 @@ router.get("/report-cards/:studentId/:termId", requireAuth, async (req, res): Pr
 
   // Parent Access Audit: ensure parent only sees their linked child's card
   if (req.session.role === "parent") {
-    const parentName = req.session.fullName;
+    const [currentUser] = await db
+      .select({ fullName: usersTable.fullName })
+      .from(usersTable)
+      .where(eq(usersTable.id, req.session.userId!));
+
+    const parentName = currentUser?.fullName;
     if (!parentName || !student.guardianName || student.guardianName.toLowerCase() !== parentName.toLowerCase()) {
       res.status(403).json({ error: "You are not authorized to view report cards for this student" });
       return;

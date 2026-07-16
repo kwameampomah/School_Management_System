@@ -113,7 +113,12 @@ router.get("/students", requireAuth, async (req, res): Promise<void> => {
 
   // Parents can only see their own children
   if (req.session.role === "parent") {
-    const parentName = req.session.fullName;
+    const [currentUser] = await db
+      .select({ fullName: usersTable.fullName })
+      .from(usersTable)
+      .where(eq(usersTable.id, req.session.userId!));
+
+    const parentName = currentUser?.fullName;
     if (!parentName) {
       res.status(403).json({ error: "No parent profile found for this account" });
       return;

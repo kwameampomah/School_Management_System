@@ -67,4 +67,13 @@ app.use(
 
 app.use("/api", router);
 
+// Standardized JSON error handler
+app.use((err: any, req: any, res: any, next: any): void => {
+  req.log?.error(err);
+  const status = err.status || err.statusCode || 500;
+  res.status(status).json({
+    error: err.message || "An unexpected error occurred",
+  });
+});
+
 export default app;
