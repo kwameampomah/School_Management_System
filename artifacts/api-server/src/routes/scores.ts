@@ -11,6 +11,8 @@ import {
   auditLogsTable,
 } from "@workspace/db";
 import { requireTeacher } from "../middlewares/auth";
+import { validate } from "../middlewares/validation";
+import { UpsertScoreBody, BulkUpsertScoresBody } from "@workspace/api-zod";
 
 const router: IRouter = Router();
 

@@ -268,6 +268,7 @@ router.get("/report-cards/:studentId/:termId", requireAuth, async (req, res): Pr
       studentIdNumber: studentsTable.studentIdNumber,
       classId: studentsTable.classId,
       className: classesTable.name,
+      guardianName: studentsTable.guardianName,
     })
     .from(studentsTable)
     .leftJoin(classesTable, eq(studentsTable.classId, classesTable.id))
@@ -276,6 +277,45 @@ router.get("/report-cards/:studentId/:termId", requireAuth, async (req, res): Pr
   if (!student) {
     res.status(404).json({ error: "Student not found" });
     return;
+  }
+
+  // Teacher Access Audit: ensure teacher is assigned to this student's class
+  if (req.session.role === "teacher") {
+    const teacherId = req.session.teacherId;
+    if (!teacherId) {
+      res.status(403).json({ error: "No teacher profile associated with this account" });
+      return;
+    }
+    
+    const [cls] = await db
+      .select()
+      .from(classesTable)
+      .where(and(eq(classesTable.id, student.classId!), eq(classesTable.classTeacherId, teacherId)));
+      
+    if (!cls) {
+      const assignments = await db
+        .select()
+        .from(teacherAssignmentsTable)
+        .innerJoin(classSubjectsTable, eq(teacherAssignmentsTable.classSubjectId, classSubjectsTable.id))
+        .where(and(
+          eq(teacherAssignmentsTable.teacherId, teacherId),
+          eq(classSubjectsTable.classId, student.classId!)
+        ));
+      
+      if (assignments.length === 0) {
+        res.status(403).json({ error: "You are not authorized to view report cards for this student" });
+        return;
+      }
+    }
+  }
+
+  // Parent Access Audit: ensure parent only sees their linked child's card
+  if (req.session.role === "parent") {
+    const parentName = req.session.fullName;
+    if (!parentName || !student.guardianName || student.guardianName.toLowerCase() !== parentName.toLowerCase()) {
+      res.status(403).json({ error: "You are not authorized to view report cards for this student" });
+      return;
+    }
   }
 
   const [term] = await db

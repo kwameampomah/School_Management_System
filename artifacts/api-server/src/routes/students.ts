@@ -1,7 +1,26 @@
 import { Router, type IRouter } from "express";
-import { eq, and } from "drizzle-orm";
-import { db, studentsTable, classesTable } from "@workspace/db";
+import { eq, and, inArray, sql } from "drizzle-orm";
+import { db, studentsTable, classesTable, teacherAssignmentsTable, classSubjectsTable, usersTable } from "@workspace/db";
 import { requireAuth, requireAdmin, requireTeacher } from "../middlewares/auth";
+
+async function getTeacherClassIds(teacherId: number): Promise<number[]> {
+  const classTeacherClasses = await db
+    .select({ id: classesTable.id })
+    .from(classesTable)
+    .where(eq(classesTable.classTeacherId, teacherId));
+  
+  const assignedClasses = await db
+    .select({ classId: classSubjectsTable.classId })
+    .from(teacherAssignmentsTable)
+    .innerJoin(classSubjectsTable, eq(teacherAssignmentsTable.classSubjectId, classSubjectsTable.id))
+    .where(eq(teacherAssignmentsTable.teacherId, teacherId));
+  
+  const classIds = new Set<number>();
+  classTeacherClasses.forEach(c => classIds.add(c.id));
+  assignedClasses.forEach(c => classIds.add(c.classId));
+  
+  return Array.from(classIds);
+}
 
 const router: IRouter = Router();
 
@@ -61,6 +80,61 @@ async function getStudentRow(id: number) {
 
 router.get("/students", requireAuth, async (req, res): Promise<void> => {
   const classId = req.query.classId ? parseInt(req.query.classId as string, 10) : null;
+  const conditions = [];
+
+  if (classId) {
+    conditions.push(eq(studentsTable.classId, classId));
+  }
+
+  // Teachers can only see students in classes they are assigned to or lead
+  if (req.session.role === "teacher") {
+    const teacherId = req.session.teacherId;
+    if (!teacherId) {
+      res.status(403).json({ error: "No teacher profile found for this account" });
+      return;
+    }
+    const allowedClassIds = await getTeacherClassIds(teacherId);
+    if (classId) {
+      if (!allowedClassIds.includes(classId)) {
+        res.status(403).json({ error: "You are not authorized to view students in this class" });
+        return;
+      }
+    } else {
+      if (allowedClassIds.length === 0) {
+        res.json([]);
+        return;
+      }
+      conditions.push(inArray(studentsTable.classId, allowedClassIds));
+    }
+  }
+
+  // Parents can only see their own children
+  if (req.session.role === "parent") {
+    const parentName = req.session.fullName;
+    if (!parentName) {
+      res.status(403).json({ error: "No parent profile found for this account" });
+      return;
+    }
+    const children = await db
+      .select({ id: studentsTable.id })
+      .from(studentsTable)
+      .where(sql`lower(${studentsTable.guardianName}) = lower(${parentName})`);
+    
+    const childIds = children.map(c => c.id);
+    if (childIds.length === 0) {
+      res.json([]);
+      return;
+    }
+    
+    if (classId) {
+      conditions.push(and(
+        inArray(studentsTable.id, childIds),
+        eq(studentsTable.classId, classId)
+      ));
+    } else {
+      conditions.push(inArray(studentsTable.id, childIds));
+    }
+  }
 
   const rows = await db
     .select({
@@ -77,7 +151,7 @@ router.get("/students", requireAuth, async (req, res): Promise<void> => {
     })
     .from(studentsTable)
     .leftJoin(classesTable, eq(studentsTable.classId, classesTable.id))
-    .where(classId ? eq(studentsTable.classId, classId) : undefined)
+    .where(conditions.length > 0 ? and(...conditions) : undefined)
     .orderBy(studentsTable.fullName);
 
   res.json(rows);
