@@ -152,6 +152,15 @@ export function AppLayout({
     if (scrollRef.current) {
       scrollRef.current.scrollTop = 0;
     }
+    
+    // Asynchronous double-reset: ensures scroll to top succeeds even if new route initially renders a short loading state
+    const timer = setTimeout(() => {
+      if (scrollRef.current) {
+        scrollRef.current.scrollTop = 0;
+      }
+    }, 150);
+    
+    return () => clearTimeout(timer);
   }, [location]);
 
   if (isLoading) {

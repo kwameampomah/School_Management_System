@@ -62,6 +62,9 @@ export default function StudentsPage() {
 
   const { data: students, isLoading } = useListStudents(classFilter ? { classId: parseInt(classFilter) } : undefined);
 
+  const [sortField, setSortField] = useState<"name" | "id" | "gender" | null>(null);
+  const [sortDirection, setSortDirection] = useState<"asc" | "desc">("asc");
+
   const filteredStudents = React.useMemo(() => {
     if (!students) return [];
     return students.filter(student => 
@@ -69,6 +72,32 @@ export default function StudentsPage() {
       student.studentIdNumber.toLowerCase().includes(searchQuery.toLowerCase())
     );
   }, [students, searchQuery]);
+
+  const sortedStudents = React.useMemo(() => {
+    let list = [...filteredStudents];
+    if (!sortField) return list;
+    
+    list.sort((a, b) => {
+      let valA = "";
+      let valB = "";
+      
+      if (sortField === "name") {
+        valA = a.fullName || "";
+        valB = b.fullName || "";
+      } else if (sortField === "id") {
+        valA = a.studentIdNumber || "";
+        valB = b.studentIdNumber || "";
+      } else if (sortField === "gender") {
+        valA = a.gender || "";
+        valB = b.gender || "";
+      }
+      
+      const compare = valA.localeCompare(valB, undefined, { numeric: true, sensitivity: 'base' });
+      return sortDirection === "asc" ? compare : -compare;
+    });
+    
+    return list;
+  }, [filteredStudents, sortField, sortDirection]);
 
   const [isCreateOpen, setIsCreateOpen] = useState(false);
   const [isImportOpen, setIsImportOpen] = useState(false);
@@ -131,14 +160,72 @@ export default function StudentsPage() {
           </div>
         </div>
 
-        {/* Search Input Bar */}
-        <div className="w-full max-w-md">
-          <Input 
-            placeholder="Search students by name or ID..." 
-            value={searchQuery}
-            onChange={e => setSearchQuery(e.target.value)}
-            className="w-full bg-background"
-          />
+        {/* Search & Sort Toolbar */}
+        <div className="flex flex-col gap-3 bg-muted/20 p-3 sm:p-4 rounded-lg border">
+          <div className="relative w-full">
+            <Input 
+              placeholder="Search students by name or ID..." 
+              value={searchQuery}
+              onChange={e => setSearchQuery(e.target.value)}
+              className="w-full bg-background"
+            />
+          </div>
+          <div className="flex flex-wrap gap-2 justify-end">
+            <Button
+              variant={sortField === "name" ? "secondary" : "outline"}
+              size="sm"
+              onClick={() => {
+                if (sortField === "name") {
+                  setSortDirection(prev => prev === "asc" ? "desc" : "asc");
+                } else {
+                  setSortField("name");
+                  setSortDirection("asc");
+                }
+              }}
+            >
+              Sort by Name {sortField === "name" && (sortDirection === "asc" ? "↑" : "↓")}
+            </Button>
+            <Button
+              variant={sortField === "id" ? "secondary" : "outline"}
+              size="sm"
+              onClick={() => {
+                if (sortField === "id") {
+                  setSortDirection(prev => prev === "asc" ? "desc" : "asc");
+                } else {
+                  setSortField("id");
+                  setSortDirection("asc");
+                }
+              }}
+            >
+              Sort by ID {sortField === "id" && (sortDirection === "asc" ? "↑" : "↓")}
+            </Button>
+            <Button
+              variant={sortField === "gender" ? "secondary" : "outline"}
+              size="sm"
+              onClick={() => {
+                if (sortField === "gender") {
+                  setSortDirection(prev => prev === "asc" ? "desc" : "asc");
+                } else {
+                  setSortField("gender");
+                  setSortDirection("asc");
+                }
+              }}
+            >
+              Sort by Gender {sortField === "gender" && (sortDirection === "asc" ? "↑" : "↓")}
+            </Button>
+            {(sortField || searchQuery) && (
+              <Button
+                variant="ghost"
+                size="sm"
+                onClick={() => {
+                  setSearchQuery("");
+                  setSortField(null);
+                }}
+              >
+                Reset
+              </Button>
+            )}
+          </div>
         </div>
       </div>
 
@@ -157,10 +244,10 @@ export default function StudentsPage() {
               </TableRow>
             </TableHeader>
             <TableBody>
-              {filteredStudents.length === 0 && (
+              {sortedStudents.length === 0 && (
                 <TableRow><TableCell colSpan={6} className="text-center text-muted-foreground py-6">No students found.</TableCell></TableRow>
               )}
-              {filteredStudents.map(student => (
+              {sortedStudents.map(student => (
                 <TableRow key={student.id}>
                   <TableCell className="font-mono text-xs">{student.studentIdNumber}</TableCell>
                   <TableCell className="font-medium">{student.fullName}</TableCell>
@@ -185,12 +272,12 @@ export default function StudentsPage() {
 
       {/* Mobile Version: Responsive Card Grid */}
       <div className="grid grid-cols-1 gap-2.5 sm:hidden">
-        {filteredStudents.length === 0 && (
+        {sortedStudents.length === 0 && (
           <div className="text-center text-muted-foreground py-10 border border-dashed rounded-xl bg-card/20">
             No students found.
           </div>
         )}
-        {filteredStudents.map(student => (
+        {sortedStudents.map(student => (
           <div 
             key={student.id} 
             className="border border-border/50 bg-card/30 px-3 py-2.5 rounded-lg flex items-center justify-between gap-3 shadow-sm"
