@@ -40,7 +40,8 @@ export default function ClassesPage() {
         <Button onClick={() => setIsCreateOpen(true)} size="sm"><Plus className="w-4 h-4 mr-1 sm:mr-2" /><span className="hidden sm:inline">Add Class</span><span className="sm:hidden">Add</span></Button>
       </div>
 
-      <Card>
+      {/* Desktop Layout: Table */}
+      <Card className="hidden sm:block">
         <div className="overflow-x-auto">
           <Table className="min-w-[480px]">
             <TableHeader>
@@ -74,6 +75,48 @@ export default function ClassesPage() {
           </Table>
         </div>
       </Card>
+
+      {/* Mobile Layout: Compact Card Grid */}
+      <div className="grid grid-cols-1 gap-2.5 sm:hidden">
+        {classes?.length === 0 && (
+          <div className="text-center text-muted-foreground py-10 border border-dashed rounded-xl bg-card/20">
+            No classes found.
+          </div>
+        )}
+        {classes?.map(cls => (
+          <div key={cls.id} className="border border-border/50 bg-card/30 px-3 py-2.5 rounded-lg flex items-center justify-between gap-3 shadow-sm">
+            <div className="min-w-0 flex-1">
+              <div className="flex items-center gap-2">
+                <h3 className="font-semibold text-sm text-foreground truncate">{cls.name}</h3>
+                <Badge variant="secondary" className="text-[10px] px-1.5 py-0 leading-none shrink-0">{cls.academicYearLabel}</Badge>
+              </div>
+              <div className="flex items-center gap-1.5 mt-1 text-xs text-muted-foreground">
+                <span className="truncate">Teacher: {cls.classTeacherName || "Unassigned"}</span>
+                <span>•</span>
+                <span>Students: {cls.studentCount || 0}</span>
+              </div>
+            </div>
+            <div className="flex items-center gap-0.5 shrink-0">
+              <Button 
+                variant="ghost" 
+                size="icon" 
+                className="w-8 h-8 rounded-full" 
+                onClick={() => setEditingClass(cls)}
+              >
+                <Pencil className="w-3.5 h-3.5 text-muted-foreground" />
+              </Button>
+              <Button 
+                variant="ghost" 
+                size="icon" 
+                className="w-8 h-8 rounded-full text-destructive hover:bg-destructive/5 hover:text-destructive" 
+                onClick={() => handleDelete(cls.id)}
+              >
+                <Trash2 className="w-3.5 h-3.5" />
+              </Button>
+            </div>
+          </div>
+        ))}
+      </div>
 
       <ClassDialog open={isCreateOpen} onOpenChange={setIsCreateOpen} />
       <ClassDialog open={!!editingClass} onOpenChange={(v) => !v && setEditingClass(null)} cls={editingClass} />

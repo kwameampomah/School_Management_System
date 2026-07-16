@@ -59,7 +59,8 @@ export default function UsersPage() {
         </div>
       </div>
 
-      <Card>
+      {/* Desktop Layout: Table */}
+      <Card className="hidden sm:block">
         <div className="overflow-x-auto">
           <Table className="min-w-[480px]">
             <TableHeader>
@@ -98,6 +99,48 @@ export default function UsersPage() {
           </Table>
         </div>
       </Card>
+
+      {/* Mobile Layout: Compact Card Grid */}
+      <div className="grid grid-cols-1 gap-2.5 sm:hidden">
+        {users?.length === 0 && (
+          <div className="text-center text-muted-foreground py-10 border border-dashed rounded-xl bg-card/20">
+            No users found.
+          </div>
+        )}
+        {users?.map(user => (
+          <div key={user.id} className="border border-border/50 bg-card/30 px-3 py-2.5 rounded-lg flex items-center justify-between gap-3 shadow-sm">
+            <div className="min-w-0 flex-1">
+              <div className="flex items-center gap-2">
+                <h3 className="font-semibold text-sm text-foreground truncate">{user.fullName}</h3>
+                <Badge variant={getRoleBadgeVariant(user.role)} className="text-[10px] px-1.5 py-0 leading-none shrink-0 capitalize">{user.role}</Badge>
+              </div>
+              <div className="flex items-center gap-1.5 mt-1 text-xs text-muted-foreground">
+                <span className="truncate">{user.email}</span>
+                <span>•</span>
+                <span>{formatDate(user.createdAt)}</span>
+              </div>
+            </div>
+            <div className="flex items-center gap-0.5 shrink-0">
+              <Button 
+                variant="ghost" 
+                size="icon" 
+                className="w-8 h-8 rounded-full" 
+                onClick={() => setEditingUser(user)}
+              >
+                <Pencil className="w-3.5 h-3.5 text-muted-foreground" />
+              </Button>
+              <Button 
+                variant="ghost" 
+                size="icon" 
+                className="w-8 h-8 rounded-full text-destructive hover:bg-destructive/5 hover:text-destructive" 
+                onClick={() => handleDelete(user.id)}
+              >
+                <Trash2 className="w-3.5 h-3.5" />
+              </Button>
+            </div>
+          </div>
+        ))}
+      </div>
 
       <UserDialog open={isCreateOpen} onOpenChange={setIsCreateOpen} />
       <UserDialog open={!!editingUser} onOpenChange={(v) => !v && setEditingUser(null)} user={editingUser} />

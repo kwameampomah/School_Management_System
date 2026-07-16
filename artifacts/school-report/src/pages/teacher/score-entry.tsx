@@ -513,7 +513,8 @@ export default function ScoreEntryPage() {
         </div>
       </div>
 
-      <Card className="overflow-hidden">
+      {/* Desktop Version: Excel-like Grid Table */}
+      <Card className="overflow-hidden hidden sm:block">
         <div className="overflow-x-auto">
           <div className="max-h-[65vh] overflow-y-auto relative">
             <Table className="min-w-max">
@@ -578,6 +579,63 @@ export default function ScoreEntryPage() {
           </div>
         </div>
       </Card>
+
+      {/* Mobile Version: Responsive Card List */}
+      <div className="space-y-3 sm:hidden">
+        {processedStudents.length === 0 && (
+          <div className="text-center text-muted-foreground py-10 border border-dashed rounded-xl bg-card/20">
+            No students found.
+          </div>
+        )}
+        {processedStudents.map((student, idx) => (
+          <Card key={student.id} className="p-4 bg-card/30 border border-border/60 shadow-sm hover:shadow-md transition-shadow duration-300">
+            <div className="flex items-center justify-between border-b border-border/60 pb-2.5 mb-3">
+              <div>
+                <h3 className="font-semibold text-sm text-foreground">{student.fullName}</h3>
+                <span className="font-mono text-[10px] text-muted-foreground">{student.studentIdNumber}</span>
+              </div>
+              <div className="text-right shrink-0">
+                <span className="text-[10px] text-muted-foreground block uppercase tracking-wider leading-none">Weighted Total</span>
+                <span className="font-mono font-bold text-primary text-base leading-none">{getStudentTotal(student.id)}%</span>
+              </div>
+            </div>
+            
+            <div className="grid grid-cols-1 gap-2.5">
+              {components.map((c, cIdx) => {
+                const key = `${student.id}-${c.id}`;
+                const status = savingStatus[key];
+                const val = localScores[key];
+                const displayVal = val !== undefined ? val : (scores.find(s => s.studentId === student.id && s.assessmentComponentId === c.id)?.scoreValue ?? "");
+                
+                return (
+                  <div key={c.id} className="flex items-center justify-between gap-3 text-xs">
+                    <div className="flex-1 min-w-0">
+                      <span className="font-medium text-foreground block truncate">{c.name}</span>
+                      <span className="text-[10px] text-muted-foreground">Max: {c.maxScore} | {c.weightPercent}% weight</span>
+                    </div>
+                    <div className="relative w-24 shrink-0">
+                      <Input 
+                        type="number" 
+                        min={0} 
+                        max={c.maxScore}
+                        value={displayVal}
+                        onChange={(e) => handleScoreChange(student.id, c.id, e.target.value)}
+                        onBlur={() => handleScoreBlur(student.id, c.id, c.maxScore)}
+                        onKeyDown={(e) => handleKeyDown(e, idx, cIdx)}
+                        data-student-idx={idx}
+                        data-comp-idx={cIdx}
+                        className={`text-center font-mono h-8 pr-6 text-xs ${status === 'error' ? 'border-destructive' : ''}`}
+                      />
+                      {status === "saving" && <Loader2 className="w-3 h-3 animate-spin absolute right-2 top-2.5 text-muted-foreground" />}
+                      {status === "saved" && <Check className="w-3 h-3 absolute right-2 top-2.5 text-green-600" />}
+                    </div>
+                  </div>
+                );
+              })}
+            </div>
+          </Card>
+        ))}
+      </div>
     </div>
   );
 }
