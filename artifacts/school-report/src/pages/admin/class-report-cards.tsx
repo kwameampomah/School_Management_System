@@ -92,10 +92,11 @@ export default function ClassReportCardsPage() {
                 <div className="text-sm font-semibold">
                   Reviewing: <span className="text-primary font-bold">{rc.studentName}</span>
                 </div>
-                <div className="flex flex-wrap items-center gap-2">
+                <div className="flex flex-col w-full gap-2 sm:flex-row sm:w-auto sm:items-center">
                   <Button 
                     size="sm" 
                     variant="outline" 
+                    className="w-full sm:w-auto shrink-0"
                     onClick={() => setEditingMetadata({ 
                       studentId: rc.studentId, 
                       studentName: rc.studentName,
@@ -110,33 +111,36 @@ export default function ClassReportCardsPage() {
                   >
                     <Settings2 className="w-4 h-4 mr-1.5" /> Attendance & Traits
                   </Button>
-                  <Button 
-                    size="sm" 
-                    variant="outline"
-                    className="text-emerald-700 dark:text-emerald-400"
-                    disabled={isSending !== null}
-                    onClick={() => handleSendNotification(rc.studentId, rc.studentName, "whatsapp")}
-                  >
-                    {isSending === `${rc.studentId}-whatsapp` ? (
-                      <Loader2 className="w-4 h-4 mr-1.5 animate-spin" />
-                    ) : (
-                      <MessageSquare className="w-4 h-4 mr-1.5" />
-                    )}
-                    WhatsApp
-                  </Button>
-                  <Button 
-                    size="sm" 
-                    variant="outline"
-                    disabled={isSending !== null}
-                    onClick={() => handleSendNotification(rc.studentId, rc.studentName, "email")}
-                  >
-                    {isSending === `${rc.studentId}-email` ? (
-                      <Loader2 className="w-4 h-4 mr-1.5 animate-spin" />
-                    ) : (
-                      <Mail className="w-4 h-4 mr-1.5" />
-                    )}
-                    Email
-                  </Button>
+                  <div className="grid grid-cols-2 gap-2 w-full sm:flex sm:w-auto">
+                    <Button 
+                      size="sm" 
+                      variant="outline"
+                      className="text-emerald-700 dark:text-emerald-400 w-full"
+                      disabled={isSending !== null}
+                      onClick={() => handleSendNotification(rc.studentId, rc.studentName, "whatsapp")}
+                    >
+                      {isSending === `${rc.studentId}-whatsapp` ? (
+                        <Loader2 className="w-4 h-4 mr-1.5 animate-spin" />
+                      ) : (
+                        <MessageSquare className="w-4 h-4 mr-1.5" />
+                      )}
+                      WhatsApp
+                    </Button>
+                    <Button 
+                      size="sm" 
+                      variant="outline"
+                      className="w-full"
+                      disabled={isSending !== null}
+                      onClick={() => handleSendNotification(rc.studentId, rc.studentName, "email")}
+                    >
+                      {isSending === `${rc.studentId}-email` ? (
+                        <Loader2 className="w-4 h-4 mr-1.5 animate-spin" />
+                      ) : (
+                        <Mail className="w-4 h-4 mr-1.5" />
+                      )}
+                      Email
+                    </Button>
+                  </div>
                 </div>
               </CardContent>
             </Card>
