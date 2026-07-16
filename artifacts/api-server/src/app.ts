@@ -3,9 +3,13 @@ import cors from "cors";
 import session from "express-session";
 import connectPgSimple from "connect-pg-simple";
 import pinoHttp from "pino-http";
+import path from "path";
+import fs from "fs";
 import router from "./routes";
 import { logger } from "./lib/logger";
 import { pool } from "@workspace/db";
+import swaggerUi from "swagger-ui-express";
+import { swaggerDocument } from "./swagger";
 
 const PgSession = connectPgSimple(session);
 
@@ -66,6 +70,22 @@ app.use(
 );
 
 app.use("/api", router);
+
+// API Documentation Endpoint
+app.use("/api/docs", swaggerUi.serve, swaggerUi.setup(swaggerDocument));
+
+// Serve static frontend assets in production mode
+if (process.env.NODE_ENV === "production") {
+  const publicPath = path.join(process.cwd(), "artifacts/school-report/dist/public");
+  const fallbackPath = path.join(process.cwd(), "../school-report/dist/public");
+  
+  const finalPath = fs.existsSync(publicPath) ? publicPath : fallbackPath;
+  
+  app.use(express.static(finalPath));
+  app.get("*", (req, res) => {
+    res.sendFile(path.join(finalPath, "index.html"));
+  });
+}
 
 // Standardized JSON error handler
 app.use((err: any, req: any, res: any, next: any): void => {
