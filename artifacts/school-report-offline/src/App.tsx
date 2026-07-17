@@ -30,7 +30,7 @@ export default function App() {
   // Read tables from IndexedDB reactively
   const classes = useLiveQuery(() => db.classes.toArray()) || [];
   const students = useLiveQuery(() => 
-    selectedClassId ? db.students.where('classId').equals(selectedClassId).toArray() : Promise.resolve([])
+    selectedClassId ? db.students.where('classId').equals(selectedClassId).toArray() : Promise.resolve<OfflineStudent[]>([])
   ) || [];
   
   const pendingSyncCount = useLiveQuery(() => 
@@ -42,7 +42,7 @@ export default function App() {
   ) || 0;
 
   const localScores = useLiveQuery(() => 
-    selectedStudent ? db.scores.where('studentId').equals(selectedStudent.id).toArray() : Promise.resolve([])
+    selectedStudent ? db.scores.where('studentId').equals(selectedStudent.id).toArray() : Promise.resolve<OfflineScore[]>([])
   ) || [];
 
   // Track network status shifts
