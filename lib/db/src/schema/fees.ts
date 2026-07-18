@@ -1,4 +1,4 @@
-import { pgTable, serial, integer, text, numeric, date, timestamp, pgEnum, index } from "drizzle-orm/pg-core";
+import { pgTable, serial, integer, text, numeric, date, timestamp, pgEnum, index, boolean } from "drizzle-orm/pg-core";
 import { createInsertSchema } from "drizzle-zod";
 import { z } from "zod/v4";
 import { studentsTable } from "./students";
@@ -28,8 +28,10 @@ export const studentFeesTable = pgTable("student_fees", {
     .references(() => feeTypesTable.id, { onDelete: "restrict" }),
   amountDue: numeric("amount_due", { precision: 10, scale: 2 }).notNull(),
   amountPaid: numeric("amount_paid", { precision: 10, scale: 2 }).notNull().default("0.00"),
+  isPaid: boolean("is_paid").notNull().default(false),
   dueDate: date("due_date"),
   createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
+  updatedAt: timestamp("updated_at", { withTimezone: true }).notNull().defaultNow(),
 }, (table) => [
   index("student_fees_student_term_idx").on(table.studentId, table.termId),
 ]);
