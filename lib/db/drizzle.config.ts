@@ -32,4 +32,5 @@ export default defineConfig({
   dbCredentials: {
     url: resolveConnectionString(),
   },
+  schemaFilter: ["public"],
 });
