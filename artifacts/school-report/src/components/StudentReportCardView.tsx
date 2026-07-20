@@ -4,7 +4,7 @@ export default function StudentReportCardView({ reportCard }: { reportCard: Stud
   if (!reportCard) return null;
 
   const isPrimary = !(reportCard.className || "").toLowerCase().includes("jhs");
-  const overallTotal = reportCard.subjectResults?.reduce((acc, s) => acc + s.total, 0) || 0;
+  const overallTotal = Math.round(reportCard.subjectResults?.reduce((acc, s) => acc + s.total, 0) || 0);
 
   // SBC Primary grading legend rules
   const sbcLegend = [
@@ -34,23 +34,27 @@ export default function StudentReportCardView({ reportCard }: { reportCard: Stud
   const displaySubjects = isPrimary
     ? primarySubjectsList.map(name => {
         const match = reportCard.subjectResults?.find(s => s.subjectName.toUpperCase().trim() === name || name.includes(s.subjectName.toUpperCase().trim()));
+        const score100 = match ? Math.round(match.total) : 0;
         return {
           name,
-          classWork50: match ? Math.round(match.total * 0.5) : 0,
-          exam50: match ? Math.round(match.total * 0.5) : 0,
-          total100: match ? match.total : 0,
+          classWork50: Math.round(score100 * 0.5),
+          exam50: Math.round(score100 * 0.5),
+          total100: score100,
           grade: match?.grade || "B",
           remark: match?.remark || "BEGINNING",
         };
       })
-    : (reportCard.subjectResults || []).map(s => ({
-        name: s.subjectName.toUpperCase(),
-        classWork50: Math.round(s.total * 0.5),
-        exam50: Math.round(s.total * 0.5),
-        total100: s.total,
-        grade: s.grade || "B",
-        remark: s.remark || "BEGINNING",
-      }));
+    : (reportCard.subjectResults || []).map(s => {
+        const score100 = Math.round(s.total);
+        return {
+          name: s.subjectName.toUpperCase(),
+          classWork50: Math.round(score100 * 0.5),
+          exam50: Math.round(score100 * 0.5),
+          total100: score100,
+          grade: s.grade || "B",
+          remark: s.remark || "BEGINNING",
+        };
+      });
 
   // Core Competencies calculation from terminal average
   const compAvg = displaySubjects.length > 0 ? overallTotal / displaySubjects.length : 0;
