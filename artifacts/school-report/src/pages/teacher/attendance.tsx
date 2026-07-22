@@ -8,6 +8,7 @@ import { Label } from "@/components/ui/label";
 import { Select } from "@/components/ui/select";
 import { useToast } from "@/hooks/use-toast";
 import { Loader2, Save, CalendarCheck } from "lucide-react";
+import { AttendanceTab } from "@/components/mobile/Attendance/AttendanceTab";
 
 interface StudentMetadataState {
   studentId: number;
@@ -393,100 +394,40 @@ export default function AttendancePage() {
                 </Table>
               </div>
 
-              {/* Mobile Card List View */}
-              <div className="md:hidden p-4 space-y-4">
-                {rows.map((row, idx) => (
-                  <div key={row.studentId} className="p-4 rounded-xl border border-border/80 bg-card space-y-3 shadow-sm touch-active">
-                    <div className="flex items-start justify-between border-b pb-2">
-                      <div>
-                        <h4 className="font-bold text-sm text-foreground">{row.studentName}</h4>
-                        <span className="font-mono text-xs text-muted-foreground">{row.studentIdNumber}</span>
-                      </div>
-                      <span className="text-xs font-mono font-bold px-2 py-0.5 rounded-full bg-primary/10 text-primary">
-                        #{idx + 1}
-                      </span>
-                    </div>
-
-                    <div className="grid grid-cols-2 gap-3 text-xs">
-                      <div>
-                        <Label className="text-[10px] text-muted-foreground">Days Opened</Label>
-                        <Input
-                          type="number"
-                          min="1"
-                          value={row.daysOpened}
-                          onChange={(e) => handleRowChange(row.studentId, "daysOpened", parseInt(e.target.value, 10) || 0)}
-                          className="h-8 font-mono text-xs mt-1"
-                        />
-                      </div>
-                      <div>
-                        <Label className="text-[10px] text-muted-foreground">Days Present</Label>
-                        <Input
-                          type="number"
-                          min="0"
-                          max={row.daysOpened}
-                          value={row.daysPresent}
-                          onChange={(e) => handleRowChange(row.studentId, "daysPresent", parseInt(e.target.value, 10) || 0)}
-                          className="h-8 font-mono text-xs font-bold text-emerald-600 dark:text-emerald-400 mt-1"
-                        />
-                      </div>
-                    </div>
-
-                    <div className="grid grid-cols-3 gap-2 text-xs">
-                      <div>
-                        <Label className="text-[10px] text-muted-foreground">Conduct</Label>
-                        <Select
-                          value={row.conduct}
-                          onChange={(e) => handleRowChange(row.studentId, "conduct", e.target.value)}
-                          className="h-8 text-[11px] mt-1"
-                        >
-                          <option value="Excellent">Excellent</option>
-                          <option value="Good">Good</option>
-                          <option value="Satisfactory">Satisfactory</option>
-                          <option value="Needs Imp.">Needs Imp.</option>
-                        </Select>
-                      </div>
-
-                      <div>
-                        <Label className="text-[10px] text-muted-foreground">Attitude</Label>
-                        <Select
-                          value={row.attitude}
-                          onChange={(e) => handleRowChange(row.studentId, "attitude", e.target.value)}
-                          className="h-8 text-[11px] mt-1"
-                        >
-                          <option value="Enthusiastic">Enthusiastic</option>
-                          <option value="Attentive">Attentive</option>
-                          <option value="Distracted">Distracted</option>
-                          <option value="Passive">Passive</option>
-                        </Select>
-                      </div>
-
-                      <div>
-                        <Label className="text-[10px] text-muted-foreground">Interest</Label>
-                        <Select
-                          value={row.interest}
-                          onChange={(e) => handleRowChange(row.studentId, "interest", e.target.value)}
-                          className="h-8 text-[11px] mt-1"
-                        >
-                          <option value="High">High</option>
-                          <option value="Average">Average</option>
-                          <option value="Developing">Developing</option>
-                        </Select>
-                      </div>
-                    </div>
-
-                    <div>
-                      <Label className="text-[10px] text-muted-foreground">Teacher Remarks</Label>
-                      <Input
-                        type="text"
-                        value={row.teacherRemarks}
-                        onChange={(e) => handleRowChange(row.studentId, "teacherRemarks", e.target.value)}
-                        placeholder="Enter remarks..."
-                        className="h-8 text-xs mt-1"
-                      />
-                    </div>
-                  </div>
-                ))}
-              </div>
+              {/* Mobile Hero Attendance Suite */}
+              <AttendanceTab
+                className={allowedClasses.find((c) => c.id.toString() === selectedClassId)?.name || ""}
+                termName={terms?.find((t) => t.id.toString() === selectedTermId)?.name || ""}
+                students={rows.map((r) => ({
+                  id: r.studentId,
+                  studentName: r.studentName,
+                  studentIdNumber: r.studentIdNumber,
+                  marked: r.daysPresent > 0 || r.daysOpened === 0,
+                  status: r.daysPresent > 0 ? "present" : "absent",
+                  daysOpened: r.daysOpened,
+                  daysPresent: r.daysPresent,
+                  conduct: r.conduct,
+                  attitude: r.attitude,
+                  interest: r.interest,
+                  teacherRemarks: r.teacherRemarks,
+                }))}
+                isSaving={isSaving}
+                onUpdateStudents={(updated) => {
+                  setRows((prev) =>
+                    prev.map((r) => {
+                      const match = updated.find((u) => u.id === r.studentId);
+                      if (match) {
+                        return {
+                          ...r,
+                          daysPresent: match.daysPresent,
+                        };
+                      }
+                      return r;
+                    })
+                  );
+                }}
+                onSave={handleSaveAll}
+              />
             </div>
           )}
         </CardContent>
