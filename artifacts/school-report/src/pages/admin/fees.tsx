@@ -22,11 +22,21 @@ interface FeeType {
 interface StudentFeeItem {
   id: number;
   feeTypeId: number;
-  feeTypeName: string;
-  amountDue: string;
-  amountPaid: string;
+  feeName: string;
+  amountDue: number;
+  amountPaid: number;
   isPaid: boolean;
   dueDate: string | null;
+}
+
+interface FeePaymentItem {
+  id: number;
+  studentFeeId: number;
+  amountPaid: number;
+  paymentDate: string;
+  paymentMethod: string;
+  reference: string | null;
+  notes: string | null;
 }
 
 export default function FeesPage() {
@@ -61,6 +71,7 @@ export default function FeesPage() {
   );
 
   const [studentFees, setStudentFees] = useState<StudentFeeItem[]>([]);
+  const [studentPayments, setStudentPayments] = useState<FeePaymentItem[]>([]);
   const [isLoadingStudentFees, setIsLoadingStudentFees] = useState(false);
 
   // Record Payment Dialog State
@@ -73,10 +84,11 @@ export default function FeesPage() {
   const [paymentNotes, setPaymentNotes] = useState("");
   const [isRecordingPayment, setIsRecordingPayment] = useState(false);
 
-  // Reset student selection when class changes
+  // Reset student selection and fee data when class changes
   useEffect(() => {
     setSelectedStudentId("");
     setStudentFees([]);
+    setStudentPayments([]);
   }, [searchClassId]);
 
   // Auto select first student when roster loads
@@ -125,8 +137,10 @@ export default function FeesPage() {
     try {
       const res = await fetch(`/api/fees/student/${selectedStudentId}/${searchTermId}`);
       if (res.ok) {
+        // API returns { invoices: [...], payments: [...] } — not a flat array
         const data = await res.json();
-        setStudentFees(data);
+        setStudentFees(Array.isArray(data.invoices) ? data.invoices : []);
+        setStudentPayments(Array.isArray(data.payments) ? data.payments : []);
       }
     } catch (err: unknown) {
       toast({ variant: "destructive", title: "Failed to load student fee records" });
@@ -255,8 +269,8 @@ export default function FeesPage() {
   };
 
   // Calculate Total Billed, Paid, and Arrears for selected student
-  const totalBilled = studentFees.reduce((acc, f) => acc + parseFloat(f.amountDue), 0);
-  const totalPaid = studentFees.reduce((acc, f) => acc + parseFloat(f.amountPaid), 0);
+  const totalBilled = studentFees.reduce((acc, f) => acc + (typeof f.amountDue === "number" ? f.amountDue : parseFloat(f.amountDue as unknown as string) || 0), 0);
+  const totalPaid = studentFees.reduce((acc, f) => acc + (typeof f.amountPaid === "number" ? f.amountPaid : parseFloat(f.amountPaid as unknown as string) || 0), 0);
   const totalArrears = totalBilled - totalPaid;
 
   return (
@@ -367,13 +381,13 @@ export default function FeesPage() {
                       </TableHeader>
                       <TableBody>
                         {studentFees.map(fee => {
-                          const due = parseFloat(fee.amountDue);
-                          const paid = parseFloat(fee.amountPaid);
+                          const due = typeof fee.amountDue === "number" ? fee.amountDue : parseFloat(fee.amountDue as unknown as string) || 0;
+                          const paid = typeof fee.amountPaid === "number" ? fee.amountPaid : parseFloat(fee.amountPaid as unknown as string) || 0;
                           const bal = due - paid;
 
                           return (
                             <TableRow key={fee.id}>
-                              <TableCell className="font-medium">{fee.feeTypeName}</TableCell>
+                              <TableCell className="font-medium">{fee.feeName}</TableCell>
                               <TableCell>GH₵ {due.toFixed(2)}</TableCell>
                               <TableCell>GH₵ {paid.toFixed(2)}</TableCell>
                               <TableCell className={bal > 0 ? "font-semibold text-destructive" : "text-muted-foreground"}>
@@ -551,9 +565,9 @@ export default function FeesPage() {
           {paymentFeeItem && (
             <div className="space-y-4 py-4">
               <div className="bg-muted/40 p-3 rounded-lg text-sm">
-                <div className="font-semibold">{paymentFeeItem.feeTypeName}</div>
+                <div className="font-semibold">{paymentFeeItem.feeName}</div>
                 <div className="text-xs text-muted-foreground mt-1">
-                  Remaining Balance: GH₵ {(parseFloat(paymentFeeItem.amountDue) - parseFloat(paymentFeeItem.amountPaid)).toFixed(2)}
+                  Remaining Balance: GH₵ {((typeof paymentFeeItem.amountDue === "number" ? paymentFeeItem.amountDue : parseFloat(paymentFeeItem.amountDue as unknown as string) || 0) - (typeof paymentFeeItem.amountPaid === "number" ? paymentFeeItem.amountPaid : parseFloat(paymentFeeItem.amountPaid as unknown as string) || 0)).toFixed(2)}
                 </div>
               </div>
 

@@ -171,6 +171,22 @@ router.patch("/report-card-status/:id", requireAuth, validate(UpdateReportCardSt
     return;
   }
 
+  // State machine: enforce forward-only transitions (draft → submitted → approved)
+  // Only admins may revert an approved report back to submitted/draft
+  const validTransitions: Record<string, string[]> = {
+    draft: ["submitted"],
+    submitted: ["approved", "draft"],  // class teacher can unsubmit, admin can approve
+    approved: [],                       // approved is terminal; only admins can force-revert
+  };
+  const currentStatus = rcsRow.status as string;
+  const allowedNextStatuses = validTransitions[currentStatus] ?? [];
+  if (!allowedNextStatuses.includes(status) && req.session.role !== "admin") {
+    res.status(400).json({
+      error: `Invalid status transition from "${currentStatus}" to "${status}". Allowed: ${allowedNextStatuses.join(", ") || "none (final state)"}`,
+    });
+    return;
+  }
+
   const updates: Record<string, unknown> = { status };
   if (status === "approved") {
     updates.approvedBy = req.session.userId;
@@ -727,12 +743,12 @@ router.get("/report-cards/:studentId/:termId/export", requireAuth, async (req, r
   // Outer border
   doc.rect(20, 20, 555.28, 801.89).lineWidth(1).stroke("#111827");
 
-  // Logo loading
+  // Logo loading — search several relative paths; no hardcoded absolute fallback
   const logoPaths = [
     path.join(process.cwd(), "artifacts/school-report/public/logo.png"),
     path.join(process.cwd(), "../school-report/public/logo.png"),
     path.join(process.cwd(), "school-report/public/logo.png"),
-    "C:/Users/Afriyie/School_Management_System/artifacts/school-report/public/logo.png"
+    path.resolve(__dirname, "../../../../school-report/public/logo.png"),
   ];
   let logoPath = "";
   for (const p of logoPaths) {
@@ -1067,11 +1083,18 @@ router.get(
         .leftJoin(subjectsTable, eq(classSubjectsTable.subjectId, subjectsTable.id))
         .where(eq(classSubjectsTable.classId, classId));
 
+      // Determine if this is a primary class or JHS for grading
+      const studentClassName = student?.className || "";
+      const isPrimary = !studentClassName.toLowerCase().includes("jhs");
+
+      // Cache grading scales once per student (not per subject) to avoid N×M DB queries
+      const cachedScales = await db.select().from(gradingScaleTable);
+
       let subjectTotalsSum = 0;
       const subjectResults = [];
       for (const subj of classSubjects) {
         const { total, componentScores } = await computeSubjectTotal(s.id, subj.id, termId);
-        const { grade, remark } = await lookupGrade(total);
+        const { grade, remark } = await lookupGrade(total, isPrimary, cachedScales);
         subjectTotalsSum += total;
         subjectResults.push({
           subjectId: subj.subjectId,

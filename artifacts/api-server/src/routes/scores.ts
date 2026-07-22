@@ -291,12 +291,36 @@ router.put("/scores/bulk", requireTeacher, validate(BulkUpsertScoresBody), async
 
     // Bounds check per entry
     const [component] = await db
-      .select({ maxScore: assessmentComponentsTable.maxScore })
+      .select({ maxScore: assessmentComponentsTable.maxScore, classSubjectId: assessmentComponentsTable.classSubjectId, termId: assessmentComponentsTable.termId })
       .from(assessmentComponentsTable)
       .where(eq(assessmentComponentsTable.id, assessmentComponentId));
     const maxScore = component ? parseFloat(component.maxScore as unknown as string) : 100;
     const numericScore = Number(scoreValue);
     if (Number.isNaN(numericScore) || numericScore < 0 || numericScore > maxScore) continue;
+
+    // Report card lock check per entry (non-admins cannot bulk-write to submitted/approved classes)
+    if (component && req.session.role !== "admin") {
+      const [classSubj] = await db
+        .select({ classId: classSubjectsTable.classId })
+        .from(classSubjectsTable)
+        .where(eq(classSubjectsTable.id, component.classSubjectId));
+
+      if (classSubj) {
+        const [statusRow] = await db
+          .select()
+          .from(reportCardStatusTable)
+          .where(
+            and(
+              eq(reportCardStatusTable.classId, classSubj.classId),
+              eq(reportCardStatusTable.termId, component.termId)
+            )
+          );
+        if (statusRow?.status === "submitted" || statusRow?.status === "approved") {
+          // Skip this entry — class is locked
+          continue;
+        }
+      }
+    }
 
     const [existing] = await db
       .select()

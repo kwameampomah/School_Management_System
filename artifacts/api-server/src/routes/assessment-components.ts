@@ -1,6 +1,6 @@
 import { Router, type IRouter } from "express";
 import { eq, and } from "drizzle-orm";
-import { db, assessmentComponentsTable, classSubjectsTable, subjectsTable } from "@workspace/db";
+import { db, assessmentComponentsTable, classSubjectsTable, subjectsTable, scoresTable } from "@workspace/db";
 import { requireAuth, requireAdmin } from "../middlewares/auth";
 import { validate } from "../middlewares/validation";
 import { CreateAssessmentComponentBody, UpdateAssessmentComponentBody } from "@workspace/api-zod";
@@ -118,6 +118,17 @@ router.patch("/assessment-components/:id", requireAdmin, validate(UpdateAssessme
 
 router.delete("/assessment-components/:id", requireAdmin, async (req, res): Promise<void> => {
   const id = parseInt(Array.isArray(req.params.id) ? req.params.id[0] : req.params.id, 10);
+
+  // Guard: do not allow deletion if students have already recorded scores for this component
+  const [existingScore] = await db
+    .select({ id: scoresTable.id })
+    .from(scoresTable)
+    .where(eq(scoresTable.assessmentComponentId, id));
+  if (existingScore) {
+    res.status(400).json({ error: "Cannot delete assessment component: student scores have already been recorded for it." });
+    return;
+  }
+
   const [comp] = await db
     .delete(assessmentComponentsTable)
     .where(eq(assessmentComponentsTable.id, id))

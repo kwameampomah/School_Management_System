@@ -1,6 +1,6 @@
 import { Router, type IRouter } from "express";
 import { eq, sql } from "drizzle-orm";
-import { db, classesTable, academicYearsTable, teachersTable, usersTable, classSubjectsTable, subjectsTable } from "@workspace/db";
+import { db, classesTable, academicYearsTable, teachersTable, usersTable, classSubjectsTable, subjectsTable, studentsTable, assessmentComponentsTable, scoresTable } from "@workspace/db";
 import { requireAuth, requireAdmin } from "../middlewares/auth";
 import { validate } from "../middlewares/validation";
 import { CreateClassBody, UpdateClassBody, AddClassSubjectBody } from "@workspace/api-zod";
@@ -89,6 +89,17 @@ router.patch("/classes/:id", requireAdmin, validate(UpdateClassBody), async (req
 
 router.delete("/classes/:id", requireAdmin, async (req, res): Promise<void> => {
   const id = parseInt(Array.isArray(req.params.id) ? req.params.id[0] : req.params.id, 10);
+
+  // Guard: cannot delete a class that has enrolled students
+  const [studentCount] = await db
+    .select({ count: sql<number>`count(*)` })
+    .from(studentsTable)
+    .where(eq(studentsTable.classId, id));
+  if (Number(studentCount?.count ?? 0) > 0) {
+    res.status(400).json({ error: "Cannot delete class: it has enrolled students. Remove or reassign students first." });
+    return;
+  }
+
   const [cls] = await db.delete(classesTable).where(eq(classesTable.id, id)).returning();
   if (!cls) {
     res.status(404).json({ error: "Class not found" });
@@ -135,6 +146,25 @@ router.post("/classes/:id/subjects", requireAdmin, validate(AddClassSubjectBody)
 
 router.delete("/class-subjects/:id", requireAdmin, async (req, res): Promise<void> => {
   const id = parseInt(Array.isArray(req.params.id) ? req.params.id[0] : req.params.id, 10);
+
+  // Guard: cannot delete a class subject that has assessment components with recorded scores
+  const components = await db
+    .select({ id: assessmentComponentsTable.id })
+    .from(assessmentComponentsTable)
+    .where(eq(assessmentComponentsTable.classSubjectId, id));
+
+  if (components.length > 0) {
+    const componentIds = components.map(c => c.id);
+    const [scoreCount] = await db
+      .select({ count: sql<number>`count(*)` })
+      .from(scoresTable)
+      .where(sql`${scoresTable.assessmentComponentId} = ANY(ARRAY[${sql.raw(componentIds.join(","))}]::int[])`);
+    if (Number(scoreCount?.count ?? 0) > 0) {
+      res.status(400).json({ error: "Cannot remove subject: student scores have already been recorded for it. Delete the scores first." });
+      return;
+    }
+  }
+
   const [cs] = await db.delete(classSubjectsTable).where(eq(classSubjectsTable.id, id)).returning();
   if (!cs) {
     res.status(404).json({ error: "Class subject not found" });

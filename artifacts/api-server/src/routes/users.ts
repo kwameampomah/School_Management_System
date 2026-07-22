@@ -120,6 +120,13 @@ router.patch("/users/:id", requireAdmin, validate(UpdateUserBody), async (req, r
 
 router.delete("/users/:id", requireAdmin, async (req, res): Promise<void> => {
   const id = parseInt(Array.isArray(req.params.id) ? req.params.id[0] : req.params.id, 10);
+
+  // Prevent admin from deleting their own account
+  if (req.session.userId === id) {
+    res.status(400).json({ error: "You cannot delete your own account." });
+    return;
+  }
+
   const [user] = await db.delete(usersTable).where(eq(usersTable.id, id)).returning();
   if (!user) {
     res.status(404).json({ error: "User not found" });

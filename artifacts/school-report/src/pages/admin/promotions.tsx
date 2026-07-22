@@ -11,7 +11,7 @@ import { Loader2, ArrowRightLeft, ShieldAlert } from "lucide-react";
 
 export default function PromotionsPage() {
   const [sourceClass, setSourceClass] = useState<string>("");
-  const [targetClass, setTargetClass] = useState<string>("");
+  const [targetClass, setTargetClass] = useState<string | null>(null); // null = graduate
   const [selectedStudents, setSelectedStudents] = useState<number[]>([]);
   const [isPromoting, setIsPromoting] = useState(false);
 
@@ -46,14 +46,21 @@ export default function PromotionsPage() {
     if (selectedStudents.length === 0) {
       return toast({ variant: "destructive", title: "Select students first" });
     }
-    if (!targetClass) {
-      return toast({ variant: "destructive", title: "Select a target class" });
+    if (targetClass === null || targetClass === "") {
+      return toast({ variant: "destructive", title: "Select a target class or choose Graduate" });
     }
-    if (sourceClass === targetClass) {
+
+    const isGraduation = targetClass === "GRADUATE";
+    const numericTargetId = isGraduation ? null : parseInt(targetClass);
+
+    if (!isGraduation && sourceClass === targetClass) {
       return toast({ variant: "destructive", title: "Source and Target class must be different" });
     }
 
-    if (!confirm(`Are you sure you want to promote ${selectedStudents.length} students to the new class?`)) {
+    const confirmMsg = isGraduation
+      ? `Are you sure you want to mark ${selectedStudents.length} student(s) as GRADUATED? This removes them from all classes.`
+      : `Are you sure you want to promote ${selectedStudents.length} students to the new class?`;
+    if (!confirm(confirmMsg)) {
       return;
     }
 
@@ -64,15 +71,16 @@ export default function PromotionsPage() {
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
           studentIds: selectedStudents,
-          targetClassId: parseInt(targetClass),
+          targetClassId: numericTargetId,
         }),
       });
 
       if (!response.ok) throw new Error(await response.text());
 
+      const label = isGraduation ? "graduated" : "promoted";
       toast({
-        title: "Promotion completed",
-        description: `Successfully promoted ${selectedStudents.length} students.`,
+        title: `${isGraduation ? "Graduation" : "Promotion"} completed`,
+        description: `Successfully ${label} ${selectedStudents.length} students.`,
       });
 
       // Clear selections and reload lists
@@ -80,7 +88,7 @@ export default function PromotionsPage() {
       queryClient.invalidateQueries({ queryKey: ["students-for-promotion", sourceClass] });
       queryClient.invalidateQueries({ queryKey: getListStudentsQueryKey() });
     } catch (e: any) {
-      toast({ variant: "destructive", title: "Promotion failed", description: e.message });
+      toast({ variant: "destructive", title: "Action failed", description: e.message });
     } finally {
       setIsPromoting(false);
     }
@@ -119,15 +127,16 @@ export default function PromotionsPage() {
 
             <div className="space-y-2">
               <label className="text-sm font-semibold">Target Class (Promotion destination)</label>
-              <Select value={targetClass} onChange={e => setTargetClass(e.target.value)}>
+              <Select value={targetClass ?? ""} onChange={e => setTargetClass(e.target.value || null)}>
                 <option value="">Select target class...</option>
-                {classes?.map(c => <option key={c.id} value={c.id}>{c.name}</option>)}
+                <option value="GRADUATE" className="font-semibold text-amber-600">🎓 Graduate (No Class Assignment)</option>
+                {classes?.filter(c => c.id.toString() !== sourceClass).map(c => <option key={c.id} value={c.id}>{c.name}</option>)}
               </Select>
             </div>
 
-            <Button onClick={handlePromote} disabled={isPromoting || !sourceClass || !targetClass} className="w-full mt-4">
+            <Button onClick={handlePromote} disabled={isPromoting || !sourceClass || (targetClass === null || targetClass === "")} className="w-full mt-4">
               {isPromoting ? <Loader2 className="w-4 h-4 mr-2 animate-spin" /> : null}
-              Promote Selected Students
+              {targetClass === "GRADUATE" ? "Graduate Selected Students" : "Promote Selected Students"}
             </Button>
           </CardContent>
         </Card>

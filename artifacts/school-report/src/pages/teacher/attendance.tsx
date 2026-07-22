@@ -35,15 +35,37 @@ export default function AttendancePage() {
   
   const { toast } = useToast();
 
-  // Find classes allowed for current user
+  // Fetch teacher assignments to determine which classes a subject teacher can access
+  const [assignedClassIds, setAssignedClassIds] = useState<Set<number>>(new Set());
+  useEffect(() => {
+    if (!user?.teacherId || user.role !== "teacher" || !classes || classes.length === 0) return;
+    fetch(`/api/teacher-assignments?teacherId=${user.teacherId}`)
+      .then(r => r.ok ? r.json() : [])
+      .then((assignments: Array<{ className: string }>) => {
+        // teacher-assignments includes className; match to class IDs
+        const assignedNames = new Set(assignments.map(a => a.className));
+        const ids = new Set<number>(
+          classes.filter(c => assignedNames.has(c.name)).map(c => c.id)
+        );
+        setAssignedClassIds(ids);
+      })
+      .catch(() => undefined);
+  }, [user?.teacherId, user?.role, classes]);
+
+  // Find classes allowed for current user:
+  // - Admins see all classes
+  // - Class teachers see their own class; subject teachers (JHS) see all their assigned classes
   const allowedClasses = useMemo(() => {
     if (!classes) return [];
     if (user?.role === "admin") return classes;
     if (user?.role === "teacher") {
-      return classes.filter(cls => cls.classTeacherId === user.teacherId);
+      // Show classes where they are the class teacher OR have any subject assignment
+      return classes.filter(cls =>
+        cls.classTeacherId === user.teacherId || assignedClassIds.has(cls.id)
+      );
     }
     return [];
-  }, [classes, user]);
+  }, [classes, user, assignedClassIds]);
 
   // Set default class selection
   useEffect(() => {
