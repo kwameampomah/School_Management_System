@@ -18,11 +18,14 @@ export const scoresTable = pgTable("scores", {
   isLocked: boolean("is_locked").notNull().default(false),
   enteredAt: timestamp("entered_at", { withTimezone: true }).notNull().defaultNow(),
   lastEditedAt: timestamp("last_edited_at", { withTimezone: true }),
+  updatedAt: timestamp("updated_at", { withTimezone: true }).notNull().defaultNow(),
+  deletedAt: timestamp("deleted_at", { withTimezone: true }),
 }, (table) => [
   index("scores_student_id_idx").on(table.studentId),
   index("scores_component_id_idx").on(table.assessmentComponentId),
   index("scores_teacher_id_idx").on(table.teacherId),
   index("scores_student_component_idx").on(table.studentId, table.assessmentComponentId),
+  index("scores_updated_at_idx").on(table.updatedAt),
 ]);
 
 export const insertScoreSchema = createInsertSchema(scoresTable).omit({

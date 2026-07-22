@@ -8,6 +8,7 @@ import {
 } from "lucide-react";
 import { Button } from "./ui/button";
 import { useTheme } from "@/contexts/theme";
+import SyncStatusIndicator from "@/components/SyncStatusIndicator";
 
 interface NavGroup {
   groupName: string;
@@ -242,13 +243,25 @@ export function AppLayout({
         />
       </aside>
 
+      {/* Desktop Top Status Bar */}
+      <div className="hidden md:flex flex-1 md:pl-64 sticky top-0 z-20 bg-background/95 backdrop-blur border-b border-border px-6 py-2.5 items-center justify-between">
+        <div className="text-xs font-medium text-muted-foreground flex items-center gap-2">
+          <span>School Management System</span>
+        </div>
+        <div className="flex items-center gap-3">
+          <SyncStatusIndicator />
+          <ThemeToggle />
+        </div>
+      </div>
+
       {/* Mobile Top Header */}
-      <header className="md:hidden flex items-center justify-between p-4 border-b border-border bg-background sticky top-0 z-30">
+      <header className="md:hidden flex items-center justify-between p-3 border-b border-border bg-background sticky top-0 z-30">
         <div className="flex items-center gap-2 font-bold text-sm">
           <img src="/logo.png" alt="Logo" className="w-6 h-6 object-contain" />
           <span>Taifa Ebenezer</span>
         </div>
         <div className="flex items-center gap-2">
+          <SyncStatusIndicator />
           <ThemeToggle />
           <Button
             variant="ghost"

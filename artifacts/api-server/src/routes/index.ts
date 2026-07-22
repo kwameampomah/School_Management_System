@@ -18,6 +18,7 @@ import promotionsRouter from "./promotions";
 import notificationsRouter from "./notifications";
 import attendanceRouter from "./attendance";
 import feesRouter from "./fees";
+import syncRouter from "./sync";
 
 const router: IRouter = Router();
 
@@ -40,5 +41,6 @@ router.use(promotionsRouter);
 router.use(notificationsRouter);
 router.use(attendanceRouter);
 router.use(feesRouter);
+router.use(syncRouter);
 
 export default router;

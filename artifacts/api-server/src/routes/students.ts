@@ -30,10 +30,10 @@ const router: IRouter = Router();
 async function teacherCanManageStudent(
   role: string,
   teacherId: number | null,
-  classId: number,
+  classId: number | null,
 ): Promise<boolean> {
   if (role === "admin") return true;
-  if (!teacherId) return false;
+  if (!teacherId || !classId) return false;
 
   const [cls] = await db
     .select({ classTeacherId: classesTable.classTeacherId })

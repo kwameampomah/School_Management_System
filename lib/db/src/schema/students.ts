@@ -1,7 +1,8 @@
-import { pgTable, serial, text, integer, date, index } from "drizzle-orm/pg-core";
+import { pgTable, serial, text, integer, date, timestamp, index } from "drizzle-orm/pg-core";
 import { createInsertSchema } from "drizzle-zod";
 import { z } from "zod/v4";
 import { classesTable } from "./classes";
+import { usersTable } from "./users";
 
 export const studentsTable = pgTable("students", {
   id: serial("id").primaryKey(),
@@ -10,13 +11,16 @@ export const studentsTable = pgTable("students", {
   dateOfBirth: date("date_of_birth", { mode: "string" }),
   gender: text("gender"),
   classId: integer("class_id")
-    .notNull()
     .references(() => classesTable.id, { onDelete: "restrict" }),
   guardianName: text("guardian_name"),
   guardianPhone: text("guardian_phone"),
+  guardianUserId: integer("guardian_user_id").references(() => usersTable.id, { onDelete: "set null" }),
   admissionDate: date("admission_date", { mode: "string" }),
+  updatedAt: timestamp("updated_at", { withTimezone: true }).notNull().defaultNow(),
+  deletedAt: timestamp("deleted_at", { withTimezone: true }),
 }, (table) => [
   index("students_class_id_idx").on(table.classId),
+  index("students_updated_at_idx").on(table.updatedAt),
 ]);
 
 export const insertStudentSchema = createInsertSchema(studentsTable).omit({ id: true });
