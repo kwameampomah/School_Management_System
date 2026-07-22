@@ -4,7 +4,7 @@ import { useGetMe, useLogout } from "@workspace/api-client-react";
 import {
   Loader2, LogOut, BookOpen, Users, GraduationCap, LayoutDashboard,
   Settings, FileText, CalendarDays, Menu, X, Sun, Moon, ArrowUpCircle,
-  CalendarCheck, CreditCard, SlidersHorizontal, UserCheck, FolderKanban
+  CalendarCheck, CreditCard, SlidersHorizontal, UserCheck, FolderKanban, Plus, Zap, Sparkles
 } from "lucide-react";
 import { Button } from "./ui/button";
 import { useTheme } from "@/contexts/theme";
@@ -231,6 +231,8 @@ export function AppLayout({
     );
   }
 
+  const [fabOpen, setFabOpen] = useState(false);
+
   return (
     <div className="min-h-screen bg-background flex flex-col md:flex-row">
       {/* Desktop Sidebar */}
@@ -289,24 +291,107 @@ export function AppLayout({
         </div>
       )}
 
+      {/* Quick Action FAB Modal Drawer */}
+      {fabOpen && (
+        <div className="md:hidden fixed inset-0 z-50 bg-background/80 backdrop-blur-sm flex items-end justify-center p-4 animate-in fade-in duration-200">
+          <div className="w-full max-w-sm bg-card border border-border rounded-2xl p-5 shadow-2xl space-y-4 animate-in slide-in-from-bottom duration-300">
+            <div className="flex items-center justify-between border-b pb-3">
+              <div className="flex items-center gap-2 text-sm font-bold text-primary">
+                <Zap className="w-4 h-4 fill-primary text-primary" />
+                <span>Quick Actions</span>
+              </div>
+              <Button size="sm" variant="ghost" className="h-7 w-7 p-0" onClick={() => setFabOpen(false)}>
+                <X className="w-4 h-4" />
+              </Button>
+            </div>
+
+            <div className="grid grid-cols-2 gap-2.5">
+              <Link
+                href={role === "teacher" ? "/teacher/score-entry" : "/admin/score-entry"}
+                onClick={() => setFabOpen(false)}
+                className="flex flex-col items-center justify-center p-3 rounded-xl bg-primary/10 hover:bg-primary/20 border border-primary/20 text-primary transition-all text-xs font-semibold gap-1.5 touch-active"
+              >
+                <FileText className="w-5 h-5" />
+                <span>Enter Scores</span>
+              </Link>
+
+              <Link
+                href="/teacher/attendance"
+                onClick={() => setFabOpen(false)}
+                className="flex flex-col items-center justify-center p-3 rounded-xl bg-emerald-500/10 hover:bg-emerald-500/20 border border-emerald-500/20 text-emerald-600 dark:text-emerald-400 transition-all text-xs font-semibold gap-1.5 touch-active"
+              >
+                <CalendarCheck className="w-5 h-5" />
+                <span>Take Attendance</span>
+              </Link>
+
+              <Link
+                href="/admin/fees"
+                onClick={() => setFabOpen(false)}
+                className="flex flex-col items-center justify-center p-3 rounded-xl bg-amber-500/10 hover:bg-amber-500/20 border border-amber-500/20 text-amber-600 dark:text-amber-400 transition-all text-xs font-semibold gap-1.5 touch-active"
+              >
+                <CreditCard className="w-5 h-5" />
+                <span>Collect Fees</span>
+              </Link>
+
+              <Link
+                href="/admin/students"
+                onClick={() => setFabOpen(false)}
+                className="flex flex-col items-center justify-center p-3 rounded-xl bg-purple-500/10 hover:bg-purple-500/20 border border-purple-500/20 text-purple-600 dark:text-purple-400 transition-all text-xs font-semibold gap-1.5 touch-active"
+              >
+                <Users className="w-5 h-5" />
+                <span>Students Roster</span>
+              </Link>
+            </div>
+          </div>
+        </div>
+      )}
+
       {/* Main Content Area */}
       <div className="flex-1 md:pl-64 flex flex-col min-h-screen">
-        <main ref={scrollRef} className="flex-1 p-4 sm:p-6 md:p-8 pb-20 md:pb-8 max-w-7xl mx-auto w-full">
+        <main ref={scrollRef} className="flex-1 p-4 sm:p-6 md:p-8 pb-24 md:pb-8 max-w-7xl mx-auto w-full">
           {children}
         </main>
 
-        {/* Mobile Bottom Quick-Bar */}
-        <nav className="md:hidden fixed bottom-0 left-0 right-0 z-20 bg-background border-t border-border flex items-center justify-around p-2">
-          {bottomItems.slice(0, 4).map((item) => {
+        {/* Mobile Floating Glassmorphism Bottom Navigation Bar */}
+        <nav className="md:hidden fixed bottom-3 left-3 right-3 z-40 bg-card/90 backdrop-blur-xl border border-border/80 rounded-full shadow-2xl flex items-center justify-around px-2 py-1.5">
+          {bottomItems.slice(0, 2).map((item) => {
             const Icon = item.icon;
             const isActive = location === item.href;
             return (
               <Link
                 key={item.href}
                 href={item.href}
-                className={`flex flex-col items-center gap-1 p-1.5 rounded-md text-[10px] font-medium transition-colors ${
+                className={`flex flex-col items-center gap-0.5 p-1.5 rounded-full text-[10px] font-medium transition-all touch-active ${
                   isActive
-                    ? "text-primary"
+                    ? "text-primary font-bold scale-105"
+                    : "text-muted-foreground hover:text-foreground"
+                }`}
+              >
+                <Icon className="w-4 h-4" />
+                <span>{item.label}</span>
+              </Link>
+            );
+          })}
+
+          {/* Center Floating Action Button (FAB) */}
+          <button
+            onClick={() => setFabOpen(!fabOpen)}
+            className="flex items-center justify-center w-11 h-11 rounded-full bg-gradient-to-tr from-primary to-purple-600 text-primary-foreground shadow-lg shadow-primary/30 touch-active -mt-4 border-2 border-background transition-transform"
+            aria-label="Quick Action Menu"
+          >
+            <Plus className={`w-6 h-6 transition-transform duration-200 ${fabOpen ? "rotate-45" : ""}`} />
+          </button>
+
+          {bottomItems.slice(2, 4).map((item) => {
+            const Icon = item.icon;
+            const isActive = location === item.href;
+            return (
+              <Link
+                key={item.href}
+                href={item.href}
+                className={`flex flex-col items-center gap-0.5 p-1.5 rounded-full text-[10px] font-medium transition-all touch-active ${
+                  isActive
+                    ? "text-primary font-bold scale-105"
                     : "text-muted-foreground hover:text-foreground"
                 }`}
               >

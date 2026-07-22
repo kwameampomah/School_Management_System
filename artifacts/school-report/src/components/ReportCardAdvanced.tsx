@@ -2,7 +2,7 @@ import React, { useState, useRef } from "react";
 import { StudentReportCard } from "@workspace/api-client-react";
 import { Button } from "@/components/ui/button";
 import { useToast } from "@/hooks/use-toast";
-import { Printer, Download, Upload, Image as ImageIcon, Save, FileJson } from "lucide-react";
+import { Printer, Download, Upload, Image as ImageIcon, Save, FileJson, Share2 } from "lucide-react";
 
 interface ReportCardAdvancedProps {
   reportCard: StudentReportCard;
@@ -273,6 +273,27 @@ export default function ReportCardAdvanced({ reportCard }: ReportCardAdvancedPro
           {/* PDF Export */}
           <Button size="sm" variant="outline" onClick={handleExportPDF}>
             <Download className="w-4 h-4 mr-1.5" /> Export PDF
+          </Button>
+
+          {/* Share via WhatsApp / Mobile Native Share */}
+          <Button
+            size="sm"
+            variant="outline"
+            className="text-emerald-600 dark:text-emerald-400 border-emerald-500/30 hover:bg-emerald-500/10"
+            onClick={() => {
+              const shareText = `Report Card: ${reportCard.studentName || "Student"} (${reportCard.className || ""})\nAverage: ${reportCard.overallAverage || 0}%\nTaifa Ebenezer School`;
+              if (navigator.share) {
+                navigator.share({
+                  title: `Report Card - ${reportCard.studentName}`,
+                  text: shareText,
+                  url: window.location.href,
+                }).catch(() => undefined);
+              } else {
+                window.open(`https://api.whatsapp.com/send?text=${encodeURIComponent(shareText)}`, "_blank");
+              }
+            }}
+          >
+            <Share2 className="w-4 h-4 mr-1.5" /> Share Report
           </Button>
 
           {/* Print */}

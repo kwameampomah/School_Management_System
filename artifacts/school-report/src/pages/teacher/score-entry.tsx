@@ -124,6 +124,8 @@ export default function ScoreEntryPage() {
     }
   }, [scores]);
 
+  const [activeFocus, setActiveFocus] = useState<{ studentId: number; compId: number; compMax: number; studentIdx: number; compIdx: number } | null>(null);
+
   const handleScoreChange = (studentId: number, compId: number, value: string) => {
     const key = `${studentId}-${compId}`;
     let numVal: number | "" = "";
@@ -656,6 +658,7 @@ export default function ScoreEntryPage() {
                         min={0} 
                         max={c.maxScore}
                         value={displayVal}
+                        onFocus={() => setActiveFocus({ studentId: student.id, compId: c.id, compMax: c.maxScore, studentIdx: idx, compIdx: cIdx })}
                         onChange={(e) => handleScoreChange(student.id, c.id, e.target.value)}
                         onBlur={() => handleScoreBlur(student.id, c.id, c.maxScore)}
                         onKeyDown={(e) => handleKeyDown(e, idx, cIdx)}
@@ -673,6 +676,67 @@ export default function ScoreEntryPage() {
           </Card>
         ))}
       </div>
+
+      {/* Floating Mobile Thumb Score Assistant Bar */}
+      {activeFocus && (
+        <div className="sm:hidden fixed bottom-16 left-3 right-3 z-50 bg-card/95 backdrop-blur-xl border border-border rounded-full p-2 flex items-center justify-between shadow-2xl animate-in slide-in-from-bottom duration-200">
+          <span className="text-[10px] font-bold text-muted-foreground px-2">Quick Score:</span>
+          <div className="flex items-center gap-1.5">
+            <Button
+              size="sm"
+              variant="secondary"
+              className="h-7 px-2 text-[11px] font-mono touch-active"
+              onClick={() => {
+                handleScoreChange(activeFocus.studentId, activeFocus.compId, activeFocus.compMax.toString());
+                handleScoreBlur(activeFocus.studentId, activeFocus.compId, activeFocus.compMax);
+              }}
+            >
+              Max ({activeFocus.compMax})
+            </Button>
+            <Button
+              size="sm"
+              variant="secondary"
+              className="h-7 px-2 text-[11px] font-mono touch-active"
+              onClick={() => {
+                const half = Math.round(activeFocus.compMax / 2);
+                handleScoreChange(activeFocus.studentId, activeFocus.compId, half.toString());
+                handleScoreBlur(activeFocus.studentId, activeFocus.compId, activeFocus.compMax);
+              }}
+            >
+              50%
+            </Button>
+            <Button
+              size="sm"
+              variant="outline"
+              className="h-7 px-2 text-[11px] font-mono touch-active"
+              onClick={() => {
+                handleScoreChange(activeFocus.studentId, activeFocus.compId, "0");
+                handleScoreBlur(activeFocus.studentId, activeFocus.compId, activeFocus.compMax);
+              }}
+            >
+              0
+            </Button>
+            <Button
+              size="sm"
+              variant="default"
+              className="h-7 px-2 text-[11px] gap-1 touch-active"
+              onClick={() => {
+                const nextInput = document.querySelector<HTMLInputElement>(
+                  `input[data-student-idx="${activeFocus.studentIdx + 1}"][data-comp-idx="${activeFocus.compIdx}"]`
+                );
+                if (nextInput) {
+                  nextInput.focus();
+                  nextInput.select();
+                } else {
+                  setActiveFocus(null);
+                }
+              }}
+            >
+              Next ⬇️
+            </Button>
+          </div>
+        </div>
+      )}
     </div>
   );
 }

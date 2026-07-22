@@ -140,6 +140,15 @@
   input[type='search']::-webkit-search-cancel-button {
     @apply hidden;
   }
+  .touch-active:active {
+    transform: scale(0.97);
+    transition: transform 0.15s cubic-bezier(0.4, 0, 0.2, 1);
+  }
+  .glass-panel {
+    background-color: hsl(var(--background) / 0.85);
+    backdrop-filter: blur(16px);
+    -webkit-backdrop-filter: blur(16px);
+  }
 }
 
 @media print {

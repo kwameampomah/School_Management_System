@@ -368,58 +368,114 @@ export default function FeesPage() {
                   ) : studentFees.length === 0 ? (
                     <div className="py-8 text-center text-muted-foreground">No fees billed for this student in this term.</div>
                   ) : (
-                    <Table>
-                      <TableHeader>
-                        <TableRow>
-                          <TableHead>Fee Type</TableHead>
-                          <TableHead>Amount Due</TableHead>
-                          <TableHead>Amount Paid</TableHead>
-                          <TableHead>Balance</TableHead>
-                          <TableHead>Status</TableHead>
-                          <TableHead className="text-right">Action</TableHead>
-                        </TableRow>
-                      </TableHeader>
-                      <TableBody>
-                        {studentFees.map(fee => {
-                          const due = typeof fee.amountDue === "number" ? fee.amountDue : parseFloat(fee.amountDue as unknown as string) || 0;
-                          const paid = typeof fee.amountPaid === "number" ? fee.amountPaid : parseFloat(fee.amountPaid as unknown as string) || 0;
-                          const bal = due - paid;
-
-                          return (
-                            <TableRow key={fee.id}>
-                              <TableCell className="font-medium">{fee.feeName}</TableCell>
-                              <TableCell>GH₵ {due.toFixed(2)}</TableCell>
-                              <TableCell>GH₵ {paid.toFixed(2)}</TableCell>
-                              <TableCell className={bal > 0 ? "font-semibold text-destructive" : "text-muted-foreground"}>
-                                GH₵ {bal.toFixed(2)}
-                              </TableCell>
-                              <TableCell>
-                                {fee.isPaid ? (
-                                  <Badge variant="outline" className="bg-emerald-500/10 text-emerald-600 dark:text-emerald-400 border-emerald-500/30">Fully Paid</Badge>
-                                ) : paid > 0 ? (
-                                  <Badge variant="secondary">Partial</Badge>
-                                ) : (
-                                  <Badge variant="destructive">Unpaid</Badge>
-                                )}
-                              </TableCell>
-                              <TableCell className="text-right">
-                                <Button
-                                  size="sm"
-                                  disabled={fee.isPaid}
-                                  onClick={() => {
-                                    setPaymentFeeItem(fee);
-                                    setPaymentAmount(bal.toString());
-                                    setIsPaymentDialogOpen(true);
-                                  }}
-                                >
-                                  <DollarSign className="w-4 h-4 mr-1" /> Record Payment
-                                </Button>
-                              </TableCell>
+                    <div>
+                      {/* Desktop Table */}
+                      <div className="hidden md:block">
+                        <Table>
+                          <TableHeader>
+                            <TableRow>
+                              <TableHead>Fee Item</TableHead>
+                              <TableHead>Amount Due</TableHead>
+                              <TableHead>Amount Paid</TableHead>
+                              <TableHead>Balance</TableHead>
+                              <TableHead>Status</TableHead>
                             </TableRow>
-                          );
-                        })}
-                      </TableBody>
-                    </Table>
+                          </TableHeader>
+                          <TableBody>
+                            {studentFees.map(fee => {
+                              const due = typeof fee.amountDue === "number" ? fee.amountDue : parseFloat(fee.amountDue as unknown as string) || 0;
+                              const paid = typeof fee.amountPaid === "number" ? fee.amountPaid : parseFloat(fee.amountPaid as unknown as string) || 0;
+                              const bal = due - paid;
+
+                              return (
+                              <TableRow key={fee.id}>
+                                <TableCell className="font-medium">{fee.feeName}</TableCell>
+                                <TableCell>GH₵ {due.toFixed(2)}</TableCell>
+                                <TableCell>GH₵ {paid.toFixed(2)}</TableCell>
+                                <TableCell className={bal > 0 ? "font-semibold text-destructive" : "text-muted-foreground"}>
+                                  GH₵ {bal.toFixed(2)}
+                                </TableCell>
+                                <TableCell>
+                                  {fee.isPaid ? (
+                                    <Badge variant="outline" className="bg-emerald-500/10 text-emerald-600 dark:text-emerald-400 border-emerald-500/30">Fully Paid</Badge>
+                                  ) : paid > 0 ? (
+                                    <Badge variant="secondary">Partial</Badge>
+                                  ) : (
+                                    <Badge variant="destructive">Unpaid</Badge>
+                                  )}
+                                </TableCell>
+                                <TableCell className="text-right">
+                                  <Button
+                                    size="sm"
+                                    disabled={fee.isPaid}
+                                    onClick={() => {
+                                      setPaymentFeeItem(fee);
+                                      setPaymentAmount(bal.toString());
+                                      setIsPaymentDialogOpen(true);
+                                    }}
+                                  >
+                                    <DollarSign className="w-4 h-4 mr-1" /> Record Payment
+                                  </Button>
+                                </TableCell>
+                              </TableRow>
+                            );
+                          })}
+                        </TableBody>
+                      </Table>
+                    </div>
+
+                    {/* Mobile Card List View */}
+                    <div className="md:hidden space-y-3">
+                      {studentFees.map(fee => {
+                        const due = typeof fee.amountDue === "number" ? fee.amountDue : parseFloat(fee.amountDue as unknown as string) || 0;
+                        const paid = typeof fee.amountPaid === "number" ? fee.amountPaid : parseFloat(fee.amountPaid as unknown as string) || 0;
+                        const bal = due - paid;
+
+                        return (
+                          <div key={fee.id} className="p-3.5 rounded-xl border border-border/80 bg-card space-y-3 shadow-sm touch-active">
+                            <div className="flex items-start justify-between">
+                              <h4 className="font-bold text-sm text-foreground">{fee.feeName}</h4>
+                              {fee.isPaid ? (
+                                <Badge variant="outline" className="bg-emerald-500/10 text-emerald-600 border-emerald-500/30">Fully Paid</Badge>
+                              ) : paid > 0 ? (
+                                <Badge variant="secondary">Partial</Badge>
+                              ) : (
+                                <Badge variant="destructive">Unpaid</Badge>
+                              )}
+                            </div>
+
+                            <div className="grid grid-cols-3 gap-2 text-xs bg-muted/30 p-2 rounded-lg text-center font-mono">
+                              <div>
+                                <span className="text-[10px] text-muted-foreground block font-sans">Due</span>
+                                <span className="font-medium">GH₵ {due.toFixed(2)}</span>
+                              </div>
+                              <div>
+                                <span className="text-[10px] text-muted-foreground block font-sans">Paid</span>
+                                <span className="font-medium text-emerald-600 dark:text-emerald-400">GH₵ {paid.toFixed(2)}</span>
+                              </div>
+                              <div>
+                                <span className="text-[10px] text-muted-foreground block font-sans">Balance</span>
+                                <span className={bal > 0 ? "font-bold text-destructive" : "text-muted-foreground"}>GH₵ {bal.toFixed(2)}</span>
+                              </div>
+                            </div>
+
+                            <Button
+                              size="sm"
+                              className="w-full h-8 text-xs font-semibold"
+                              disabled={fee.isPaid}
+                              onClick={() => {
+                                setPaymentFeeItem(fee);
+                                setPaymentAmount(bal.toString());
+                                setIsPaymentDialogOpen(true);
+                              }}
+                            >
+                              <DollarSign className="w-3.5 h-3.5 mr-1" /> Record Payment
+                            </Button>
+                          </div>
+                        );
+                      })}
+                    </div>
+                  </div>
                   )}
                 </CardContent>
               </Card>
