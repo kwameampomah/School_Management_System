@@ -149,7 +149,32 @@ export default function ScoreEntryPage() {
     if (existingScore && existingScore.scoreValue === value) return; // no change
 
     setSavingStatus(prev => ({ ...prev, [key]: "saving" }));
-    
+
+    // Check offline status
+    if (!navigator.onLine) {
+      import("@/lib/offline-db").then(({ enqueueMutation }) => {
+        enqueueMutation("/api/scores", "PUT", {
+          studentId,
+          assessmentComponentId: compId,
+          scoreValue: value,
+        }).then(() => {
+          setSavingStatus(prev => ({ ...prev, [key]: "saved" }));
+          toast({
+            title: "Saved Locally",
+            description: "Score saved offline. It will automatically sync when internet reconnects.",
+          });
+          setTimeout(() => {
+            setSavingStatus(prev => {
+              const next = { ...prev };
+              delete next[key];
+              return next;
+            });
+          }, 2000);
+        });
+      });
+      return;
+    }
+
     upsertScoreMutate.current({ 
       data: { studentId, assessmentComponentId: compId, scoreValue: value as number } 
     }, {
@@ -165,8 +190,20 @@ export default function ScoreEntryPage() {
         }, 2000);
       },
       onError: () => {
-        setSavingStatus(prev => ({ ...prev, [key]: "error" }));
-        toast({ variant: "destructive", title: "Failed to save score" });
+        // Fallback to offline queueing if network error occurs mid-request
+        import("@/lib/offline-db").then(({ enqueueMutation }) => {
+          enqueueMutation("/api/scores", "PUT", {
+            studentId,
+            assessmentComponentId: compId,
+            scoreValue: value,
+          }).then(() => {
+            setSavingStatus(prev => ({ ...prev, [key]: "saved" }));
+            toast({
+              title: "Queued for Sync",
+              description: "Server unavailable. Score queued locally for automatic sync.",
+            });
+          });
+        });
       }
     });
   };

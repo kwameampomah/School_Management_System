@@ -169,6 +169,16 @@ export default function AttendancePage() {
         teacherRemarks: row.teacherRemarks || undefined,
       }));
 
+      if (!navigator.onLine) {
+        const { enqueueMutation } = await import("@/lib/offline-db");
+        await enqueueMutation("/api/student-term-metadata/bulk", "PUT", { records });
+        toast({
+          title: "Saved Offline",
+          description: `Queued ${records.length} attendance & remark entries for auto-sync.`,
+        });
+        return;
+      }
+
       const res = await fetch("/api/student-term-metadata/bulk", {
         method: "PUT",
         headers: { "Content-Type": "application/json" },
@@ -183,7 +193,27 @@ export default function AttendancePage() {
         description: `Successfully updated ${data.count ?? rows.length} student records.`,
       });
     } catch (err: unknown) {
-      toast({ variant: "destructive", title: "Error saving records" });
+      // Fallback to offline queue if server error or network drop occurs mid-request
+      try {
+        const records = rows.map(row => ({
+          studentId: row.studentId,
+          termId: parseInt(selectedTermId, 10),
+          daysOpened: Number(row.daysOpened),
+          daysPresent: Number(row.daysPresent),
+          conduct: row.conduct || undefined,
+          attitude: row.attitude || undefined,
+          interest: row.interest || undefined,
+          teacherRemarks: row.teacherRemarks || undefined,
+        }));
+        const { enqueueMutation } = await import("@/lib/offline-db");
+        await enqueueMutation("/api/student-term-metadata/bulk", "PUT", { records });
+        toast({
+          title: "Queued for Sync",
+          description: "Server unavailable. Attendance queued locally for automatic sync.",
+        });
+      } catch {
+        toast({ variant: "destructive", title: "Error saving records" });
+      }
     } finally {
       setIsSaving(false);
     }
