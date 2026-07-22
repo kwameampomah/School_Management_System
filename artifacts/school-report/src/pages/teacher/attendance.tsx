@@ -294,100 +294,200 @@ export default function AttendancePage() {
               No students found in the selected class.
             </div>
           ) : (
-            <Table>
-              <TableHeader className="bg-muted/30">
-                <TableRow>
-                  <TableHead className="w-12 text-center">#</TableHead>
-                  <TableHead className="w-48">Student Name</TableHead>
-                  <TableHead className="w-24 text-center">Days Opened</TableHead>
-                  <TableHead className="w-24 text-center">Days Present</TableHead>
-                  <TableHead className="w-32">Conduct</TableHead>
-                  <TableHead className="w-32">Attitude</TableHead>
-                  <TableHead className="w-32">Interest</TableHead>
-                  <TableHead>Teacher's Remarks</TableHead>
-                </TableRow>
-              </TableHeader>
-              <TableBody>
+            <div>
+              {/* Desktop Table View */}
+              <div className="hidden md:block overflow-x-auto">
+                <Table className="w-full min-w-[850px]">
+                  <TableHeader className="bg-muted/30">
+                    <TableRow>
+                      <TableHead className="w-12 text-center whitespace-nowrap">#</TableHead>
+                      <TableHead className="w-56 whitespace-nowrap">Student Name</TableHead>
+                      <TableHead className="w-28 text-center whitespace-nowrap">Days Opened</TableHead>
+                      <TableHead className="w-28 text-center whitespace-nowrap">Days Present</TableHead>
+                      <TableHead className="w-32 whitespace-nowrap">Conduct</TableHead>
+                      <TableHead className="w-32 whitespace-nowrap">Attitude</TableHead>
+                      <TableHead className="w-32 whitespace-nowrap">Interest</TableHead>
+                      <TableHead className="whitespace-nowrap">Teacher's Remarks</TableHead>
+                    </TableRow>
+                  </TableHeader>
+                  <TableBody>
+                    {rows.map((row, idx) => (
+                      <TableRow key={row.studentId} className="hover:bg-muted/20">
+                        <TableCell className="text-center font-mono text-xs text-muted-foreground whitespace-nowrap">{idx + 1}</TableCell>
+                        <TableCell className="whitespace-nowrap">
+                          <div className="font-semibold text-sm">{row.studentName}</div>
+                          <div className="text-xs text-muted-foreground font-mono">{row.studentIdNumber}</div>
+                        </TableCell>
+
+                        <TableCell className="text-center whitespace-nowrap">
+                          <Input
+                            type="number"
+                            min="1"
+                            value={row.daysOpened}
+                            onChange={(e) => handleRowChange(row.studentId, "daysOpened", parseInt(e.target.value, 10) || 0)}
+                            className="w-20 mx-auto text-center font-mono text-sm"
+                          />
+                        </TableCell>
+
+                        <TableCell className="text-center whitespace-nowrap">
+                          <Input
+                            type="number"
+                            min="0"
+                            max={row.daysOpened}
+                            value={row.daysPresent}
+                            onChange={(e) => handleRowChange(row.studentId, "daysPresent", parseInt(e.target.value, 10) || 0)}
+                            className="w-20 mx-auto text-center font-mono text-sm font-semibold text-emerald-700 dark:text-emerald-400"
+                          />
+                        </TableCell>
+
+                        <TableCell className="whitespace-nowrap">
+                          <Select
+                            value={row.conduct}
+                            onChange={(e) => handleRowChange(row.studentId, "conduct", e.target.value)}
+                            className="text-xs"
+                          >
+                            <option value="Excellent">Excellent</option>
+                            <option value="Good">Good</option>
+                            <option value="Satisfactory">Satisfactory</option>
+                            <option value="Needs Imp.">Needs Imp.</option>
+                          </Select>
+                        </TableCell>
+
+                        <TableCell className="whitespace-nowrap">
+                          <Select
+                            value={row.attitude}
+                            onChange={(e) => handleRowChange(row.studentId, "attitude", e.target.value)}
+                            className="text-xs"
+                          >
+                            <option value="Enthusiastic">Enthusiastic</option>
+                            <option value="Attentive">Attentive</option>
+                            <option value="Distracted">Distracted</option>
+                            <option value="Passive">Passive</option>
+                          </Select>
+                        </TableCell>
+
+                        <TableCell className="whitespace-nowrap">
+                          <Select
+                            value={row.interest}
+                            onChange={(e) => handleRowChange(row.studentId, "interest", e.target.value)}
+                            className="text-xs"
+                          >
+                            <option value="High">High</option>
+                            <option value="Average">Average</option>
+                            <option value="Developing">Developing</option>
+                          </Select>
+                        </TableCell>
+
+                        <TableCell className="whitespace-nowrap">
+                          <Input
+                            type="text"
+                            value={row.teacherRemarks}
+                            onChange={(e) => handleRowChange(row.studentId, "teacherRemarks", e.target.value)}
+                            placeholder="Enter remarks..."
+                            className="text-xs"
+                          />
+                        </TableCell>
+                      </TableRow>
+                    ))}
+                  </TableBody>
+                </Table>
+              </div>
+
+              {/* Mobile Card List View */}
+              <div className="md:hidden p-4 space-y-4">
                 {rows.map((row, idx) => (
-                  <TableRow key={row.studentId} className="hover:bg-muted/20">
-                    <TableCell className="text-center font-mono text-xs text-muted-foreground">{idx + 1}</TableCell>
-                    <TableCell>
-                      <div className="font-semibold text-sm">{row.studentName}</div>
-                      <div className="text-xs text-muted-foreground font-mono">{row.studentIdNumber}</div>
-                    </TableCell>
+                  <div key={row.studentId} className="p-4 rounded-xl border border-border/80 bg-card space-y-3 shadow-sm touch-active">
+                    <div className="flex items-start justify-between border-b pb-2">
+                      <div>
+                        <h4 className="font-bold text-sm text-foreground">{row.studentName}</h4>
+                        <span className="font-mono text-xs text-muted-foreground">{row.studentIdNumber}</span>
+                      </div>
+                      <span className="text-xs font-mono font-bold px-2 py-0.5 rounded-full bg-primary/10 text-primary">
+                        #{idx + 1}
+                      </span>
+                    </div>
 
-                    <TableCell className="text-center">
-                      <Input
-                        type="number"
-                        min="1"
-                        value={row.daysOpened}
-                        onChange={(e) => handleRowChange(row.studentId, "daysOpened", parseInt(e.target.value, 10) || 0)}
-                        className="w-20 mx-auto text-center font-mono text-sm"
-                      />
-                    </TableCell>
+                    <div className="grid grid-cols-2 gap-3 text-xs">
+                      <div>
+                        <Label className="text-[10px] text-muted-foreground">Days Opened</Label>
+                        <Input
+                          type="number"
+                          min="1"
+                          value={row.daysOpened}
+                          onChange={(e) => handleRowChange(row.studentId, "daysOpened", parseInt(e.target.value, 10) || 0)}
+                          className="h-8 font-mono text-xs mt-1"
+                        />
+                      </div>
+                      <div>
+                        <Label className="text-[10px] text-muted-foreground">Days Present</Label>
+                        <Input
+                          type="number"
+                          min="0"
+                          max={row.daysOpened}
+                          value={row.daysPresent}
+                          onChange={(e) => handleRowChange(row.studentId, "daysPresent", parseInt(e.target.value, 10) || 0)}
+                          className="h-8 font-mono text-xs font-bold text-emerald-600 dark:text-emerald-400 mt-1"
+                        />
+                      </div>
+                    </div>
 
-                    <TableCell className="text-center">
-                      <Input
-                        type="number"
-                        min="0"
-                        max={row.daysOpened}
-                        value={row.daysPresent}
-                        onChange={(e) => handleRowChange(row.studentId, "daysPresent", parseInt(e.target.value, 10) || 0)}
-                        className="w-20 mx-auto text-center font-mono text-sm font-semibold text-emerald-700 dark:text-emerald-400"
-                      />
-                    </TableCell>
+                    <div className="grid grid-cols-3 gap-2 text-xs">
+                      <div>
+                        <Label className="text-[10px] text-muted-foreground">Conduct</Label>
+                        <Select
+                          value={row.conduct}
+                          onChange={(e) => handleRowChange(row.studentId, "conduct", e.target.value)}
+                          className="h-8 text-[11px] mt-1"
+                        >
+                          <option value="Excellent">Excellent</option>
+                          <option value="Good">Good</option>
+                          <option value="Satisfactory">Satisfactory</option>
+                          <option value="Needs Imp.">Needs Imp.</option>
+                        </Select>
+                      </div>
 
-                    <TableCell>
-                      <Select
-                        value={row.conduct}
-                        onChange={(e) => handleRowChange(row.studentId, "conduct", e.target.value)}
-                        className="text-xs"
-                      >
-                        <option value="Excellent">Excellent</option>
-                        <option value="Good">Good</option>
-                        <option value="Satisfactory">Satisfactory</option>
-                        <option value="Needs Imp.">Needs Imp.</option>
-                      </Select>
-                    </TableCell>
+                      <div>
+                        <Label className="text-[10px] text-muted-foreground">Attitude</Label>
+                        <Select
+                          value={row.attitude}
+                          onChange={(e) => handleRowChange(row.studentId, "attitude", e.target.value)}
+                          className="h-8 text-[11px] mt-1"
+                        >
+                          <option value="Enthusiastic">Enthusiastic</option>
+                          <option value="Attentive">Attentive</option>
+                          <option value="Distracted">Distracted</option>
+                          <option value="Passive">Passive</option>
+                        </Select>
+                      </div>
 
-                    <TableCell>
-                      <Select
-                        value={row.attitude}
-                        onChange={(e) => handleRowChange(row.studentId, "attitude", e.target.value)}
-                        className="text-xs"
-                      >
-                        <option value="Enthusiastic">Enthusiastic</option>
-                        <option value="Attentive">Attentive</option>
-                        <option value="Distracted">Distracted</option>
-                        <option value="Passive">Passive</option>
-                      </Select>
-                    </TableCell>
+                      <div>
+                        <Label className="text-[10px] text-muted-foreground">Interest</Label>
+                        <Select
+                          value={row.interest}
+                          onChange={(e) => handleRowChange(row.studentId, "interest", e.target.value)}
+                          className="h-8 text-[11px] mt-1"
+                        >
+                          <option value="High">High</option>
+                          <option value="Average">Average</option>
+                          <option value="Developing">Developing</option>
+                        </Select>
+                      </div>
+                    </div>
 
-                    <TableCell>
-                      <Select
-                        value={row.interest}
-                        onChange={(e) => handleRowChange(row.studentId, "interest", e.target.value)}
-                        className="text-xs"
-                      >
-                        <option value="High">High</option>
-                        <option value="Average">Average</option>
-                        <option value="Developing">Developing</option>
-                      </Select>
-                    </TableCell>
-
-                    <TableCell>
+                    <div>
+                      <Label className="text-[10px] text-muted-foreground">Teacher Remarks</Label>
                       <Input
                         type="text"
                         value={row.teacherRemarks}
                         onChange={(e) => handleRowChange(row.studentId, "teacherRemarks", e.target.value)}
                         placeholder="Enter remarks..."
-                        className="text-xs"
+                        className="h-8 text-xs mt-1"
                       />
-                    </TableCell>
-                  </TableRow>
+                    </div>
+                  </div>
                 ))}
-              </TableBody>
-            </Table>
+              </div>
+            </div>
           )}
         </CardContent>
       </Card>
