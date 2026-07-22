@@ -1,4 +1,4 @@
-import { pgTable, serial, integer, text, numeric, date, timestamp, pgEnum, index, boolean } from "drizzle-orm/pg-core";
+import { pgTable, serial, integer, text, numeric, date, timestamp, pgEnum, index, uniqueIndex, boolean } from "drizzle-orm/pg-core";
 import { createInsertSchema } from "drizzle-zod";
 import { z } from "zod/v4";
 import { studentsTable } from "./students";
@@ -34,6 +34,7 @@ export const studentFeesTable = pgTable("student_fees", {
   updatedAt: timestamp("updated_at", { withTimezone: true }).notNull().defaultNow(),
 }, (table) => [
   index("student_fees_student_term_idx").on(table.studentId, table.termId),
+  uniqueIndex("student_fees_unique_bill_idx").on(table.studentId, table.termId, table.feeTypeId),
 ]);
 
 export const feePaymentsTable = pgTable("fee_payments", {

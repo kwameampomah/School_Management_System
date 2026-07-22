@@ -6,7 +6,7 @@ import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@
 import { Select } from "@/components/ui/select";
 import { useToast } from "@/hooks/use-toast";
 import { useQueryClient } from "@tanstack/react-query";
-import { getListStudentsQueryKey } from "@workspace/api-client-react";
+import { getListStudentsQueryKey, getListClassesQueryKey } from "@workspace/api-client-react";
 import { Loader2, ArrowRightLeft, ShieldAlert } from "lucide-react";
 
 export default function PromotionsPage() {
@@ -87,6 +87,7 @@ export default function PromotionsPage() {
       setSelectedStudents([]);
       queryClient.invalidateQueries({ queryKey: ["students-for-promotion", sourceClass] });
       queryClient.invalidateQueries({ queryKey: getListStudentsQueryKey() });
+      queryClient.invalidateQueries({ queryKey: getListClassesQueryKey() });
     } catch (e: any) {
       toast({ variant: "destructive", title: "Action failed", description: e.message });
     } finally {

@@ -22,6 +22,7 @@ export const scoresTable = pgTable("scores", {
   index("scores_student_id_idx").on(table.studentId),
   index("scores_component_id_idx").on(table.assessmentComponentId),
   index("scores_teacher_id_idx").on(table.teacherId),
+  index("scores_student_component_idx").on(table.studentId, table.assessmentComponentId),
 ]);
 
 export const insertScoreSchema = createInsertSchema(scoresTable).omit({

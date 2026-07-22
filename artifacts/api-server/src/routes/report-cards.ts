@@ -62,7 +62,8 @@ async function computeSubjectTotal(
     const scoreValue = score ? parseFloat(score.scoreValue as unknown as string) : 0;
     const maxScore = parseFloat(comp.maxScore as unknown as string);
     const weightPercent = parseFloat(comp.weightPercent as unknown as string);
-    const weightedScore = maxScore > 0 ? (scoreValue / maxScore) * weightPercent : 0;
+    const rawWeighted = maxScore > 0 ? (scoreValue / maxScore) * weightPercent : 0;
+    const weightedScore = Math.round(rawWeighted);
     total += weightedScore;
 
     componentScores.push({
@@ -71,7 +72,7 @@ async function computeSubjectTotal(
       scoreValue,
       maxScore,
       weightPercent,
-      weightedScore: Math.round(weightedScore * 100) / 100,
+      weightedScore,
     });
   }
 
@@ -401,44 +402,68 @@ router.get("/report-cards/:studentId/:termId", requireAuth, async (req, res): Pr
     .from(studentsTable)
     .where(eq(studentsTable.classId, student.classId!));
 
-  // Compute totals for all students for ranking
+  // Pre-calculate all subject totals for all students in class ONCE (matrix cache)
+  // This eliminates 600+ redundant database queries per report card view
+  const studentSubjectMatrix: Record<number, Record<number, { total: number; componentScores: any }>> = {};
   const studentTotals: Record<number, number> = {};
+
   for (const cs of classStudents) {
-    let totalAvg = 0;
+    studentSubjectMatrix[cs.id] = {};
+    let totalSum = 0;
     for (const subj of classSubjects) {
-      const { total } = await computeSubjectTotal(cs.id, subj.id, termId);
-      totalAvg += total;
+      const res = await computeSubjectTotal(cs.id, subj.id, termId);
+      studentSubjectMatrix[cs.id][subj.id] = res;
+      totalSum += res.total;
     }
-    studentTotals[cs.id] = classSubjects.length > 0 ? totalAvg / classSubjects.length : 0;
+    studentTotals[cs.id] = classSubjects.length > 0 ? totalSum / classSubjects.length : 0;
   }
 
-  // Overall position
-  const sortedStudents = Object.entries(studentTotals)
-    .sort(([, a], [, b]) => b - a)
-    .map(([id]) => parseInt(id, 10));
-  const overallPosition = sortedStudents.indexOf(studentId) + 1;
-  const overallAverage = Math.round((studentTotals[studentId] ?? 0) * 100) / 100;
+  // Competition dense ranking function (1, 1, 3 tie handling)
+  const calculateRanks = (scoresMap: Record<number, number>): Record<number, number> => {
+    const sorted = Object.entries(scoresMap)
+      .map(([id, score]) => ({ id: Number(id), score }))
+      .sort((a, b) => b.score - a.score);
+
+    const ranks: Record<number, number> = {};
+    let currentRank = 1;
+    for (let i = 0; i < sorted.length; i++) {
+      if (i > 0 && sorted[i].score < sorted[i - 1].score) {
+        currentRank = i + 1;
+      }
+      ranks[sorted[i].id] = currentRank;
+    }
+    return ranks;
+  };
+
+  // Overall position & average calculation
+  const overallRanks = calculateRanks(studentTotals);
+  const overallPosition = overallRanks[studentId] ?? 1;
+  const overallAverage = classSubjects.length > 0 ? Math.round((studentTotals[studentId] ?? 0) * 100) / 100 : 0;
 
   // Subject results with class stats and per-subject rankings
   const isPrimaryClass = student.className ? !student.className.startsWith("JHS") : false;
   const subjectResults = [];
   for (const subj of classSubjects) {
-    const { total, componentScores } = await computeSubjectTotal(studentId, subj.id, termId);
+    const { total, componentScores } = studentSubjectMatrix[studentId]?.[subj.id] ?? { total: 0, componentScores: [] };
     const { grade, remark } = await lookupGrade(total, isPrimaryClass, cachedGradingScales);
 
-    // Class stats for this subject
-    const subjectTotals: number[] = [];
+    // Subject totals across class for subject stats & subject ranking
+    const subjectScoresMap: Record<number, number> = {};
+    const subjectTotalsList: number[] = [];
     for (const cs of classStudents) {
-      const { total: t } = await computeSubjectTotal(cs.id, subj.id, termId);
-      subjectTotals.push(t);
+      const t = studentSubjectMatrix[cs.id]?.[subj.id]?.total ?? 0;
+      subjectScoresMap[cs.id] = t;
+      subjectTotalsList.push(t);
     }
-    const sortedSubjectTotals = [...subjectTotals].sort((a, b) => b - a);
-    const subjectRank = sortedSubjectTotals.indexOf(total) + 1;
-    const classAverage = subjectTotals.length > 0
-      ? Math.round((subjectTotals.reduce((a, b) => a + b, 0) / subjectTotals.length) * 100) / 100
+
+    const subjectRanksMap = calculateRanks(subjectScoresMap);
+    const subjectRank = subjectRanksMap[studentId] ?? 1;
+
+    const classAverage = subjectTotalsList.length > 0
+      ? Math.round((subjectTotalsList.reduce((a, b) => a + b, 0) / subjectTotalsList.length) * 100) / 100
       : 0;
-    const classHighest = subjectTotals.length > 0 ? Math.max(...subjectTotals) : 0;
-    const classLowest = subjectTotals.length > 0 ? Math.min(...subjectTotals) : 0;
+    const classHighest = subjectTotalsList.length > 0 ? Math.max(...subjectTotalsList) : 0;
+    const classLowest = subjectTotalsList.length > 0 ? Math.min(...subjectTotalsList) : 0;
 
     subjectResults.push({
       subjectId: subj.subjectId,

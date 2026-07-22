@@ -45,6 +45,28 @@ router.get("/teachers/:id", requireAuth, async (req, res): Promise<void> => {
   res.json(row);
 });
 
+router.delete("/teachers/:id", requireAdmin, async (req, res): Promise<void> => {
+  const id = parseInt(Array.isArray(req.params.id) ? req.params.id[0] : req.params.id, 10);
+
+  const [teacher] = await db.select().from(teachersTable).where(eq(teachersTable.id, id));
+  if (!teacher) {
+    res.status(404).json({ error: "Teacher not found" });
+    return;
+  }
+
+  await db.transaction(async (tx) => {
+    // Delete teacher record first
+    await tx.delete(teachersTable).where(eq(teachersTable.id, id));
+    // Clean up associated user account to avoid zombie user sessions
+    if (teacher.userId) {
+      await tx.delete(usersTable).where(eq(usersTable.id, teacher.userId));
+    }
+  });
+
+  await logAudit(req.session.userId ?? null, "DELETE", "teachers", id, JSON.stringify(teacher), null);
+  res.json({ ok: true });
+});
+
 // Teacher assignments
 router.get("/teacher-assignments", requireAuth, async (req, res): Promise<void> => {
   const teacherId = req.query.teacherId ? parseInt(req.query.teacherId as string, 10) : null;

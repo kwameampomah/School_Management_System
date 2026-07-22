@@ -1,6 +1,6 @@
 import { Router, type IRouter } from "express";
-import { eq } from "drizzle-orm";
-import { db, academicYearsTable } from "@workspace/db";
+import { eq, sql } from "drizzle-orm";
+import { db, academicYearsTable, termsTable, classesTable } from "@workspace/db";
 import { requireAuth, requireAdmin } from "../middlewares/auth";
 import { validate } from "../middlewares/validation";
 import { CreateAcademicYearBody, UpdateAcademicYearBody } from "@workspace/api-zod";
@@ -64,6 +64,28 @@ router.patch("/academic-years/:id", requireAdmin, validate(UpdateAcademicYearBod
 
 router.delete("/academic-years/:id", requireAdmin, async (req, res): Promise<void> => {
   const id = parseInt(Array.isArray(req.params.id) ? req.params.id[0] : req.params.id, 10);
+
+  // Check dependencies: terms, classes
+  const [termCount] = await db
+    .select({ count: sql<number>`count(*)` })
+    .from(termsTable)
+    .where(eq(termsTable.academicYearId, id));
+
+  if (Number(termCount?.count ?? 0) > 0) {
+    res.status(400).json({ error: "Cannot delete academic year: terms exist under this academic year." });
+    return;
+  }
+
+  const [classCount] = await db
+    .select({ count: sql<number>`count(*)` })
+    .from(classesTable)
+    .where(eq(classesTable.academicYearId, id));
+
+  if (Number(classCount?.count ?? 0) > 0) {
+    res.status(400).json({ error: "Cannot delete academic year: classes exist under this academic year." });
+    return;
+  }
+
   const [year] = await db
     .delete(academicYearsTable)
     .where(eq(academicYearsTable.id, id))

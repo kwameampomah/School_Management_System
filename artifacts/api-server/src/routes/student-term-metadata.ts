@@ -117,4 +117,61 @@ router.put("/student-term-metadata", requireTeacher, validate(UpsertStudentTermM
   res.json(result);
 });
 
+const BulkUpsertMetadataSchema = z.object({
+  records: z.array(UpsertStudentTermMetadataBody).min(1),
+});
+
+router.put("/student-term-metadata/bulk", requireTeacher, validate(BulkUpsertMetadataSchema), async (req, res): Promise<void> => {
+  const { records } = req.body;
+
+  try {
+    const results = await db.transaction(async (tx) => {
+      const saved = [];
+      for (const item of records) {
+        const [existing] = await tx
+          .select()
+          .from(studentTermMetadataTable)
+          .where(
+            and(
+              eq(studentTermMetadataTable.studentId, item.studentId),
+              eq(studentTermMetadataTable.termId, item.termId),
+            )
+          );
+
+        const payload = {
+          studentId: item.studentId,
+          termId: item.termId,
+          daysOpened: item.daysOpened !== undefined ? Number(item.daysOpened) : 0,
+          daysPresent: item.daysPresent !== undefined ? Number(item.daysPresent) : 0,
+          conduct: item.conduct || null,
+          attitude: item.attitude || null,
+          interest: item.interest || null,
+          teacherRemarks: item.teacherRemarks || null,
+          headmasterRemarks: item.headmasterRemarks || null,
+        };
+
+        let result;
+        if (existing) {
+          [result] = await tx
+            .update(studentTermMetadataTable)
+            .set(payload)
+            .where(eq(studentTermMetadataTable.id, existing.id))
+            .returning();
+        } else {
+          [result] = await tx
+            .insert(studentTermMetadataTable)
+            .values(payload)
+            .returning();
+        }
+        saved.push(result);
+      }
+      return saved;
+    });
+
+    res.json({ success: true, count: results.length });
+  } catch (err: any) {
+    res.status(500).json({ error: err.message || "Failed to update bulk term metadata" });
+  }
+});
+
 export default router;

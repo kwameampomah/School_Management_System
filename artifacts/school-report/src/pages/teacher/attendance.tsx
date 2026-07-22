@@ -154,36 +154,33 @@ export default function AttendancePage() {
   };
 
   const handleSaveAll = async () => {
-    if (!selectedTermId) return;
+    if (!selectedTermId || rows.length === 0) return;
 
     setIsSaving(true);
-    let successCount = 0;
-
     try {
-      for (const row of rows) {
-        const payload = {
-          studentId: row.studentId,
-          termId: parseInt(selectedTermId, 10),
-          daysOpened: Number(row.daysOpened),
-          daysPresent: Number(row.daysPresent),
-          conduct: row.conduct || undefined,
-          attitude: row.attitude || undefined,
-          interest: row.interest || undefined,
-          teacherRemarks: row.teacherRemarks || undefined,
-        };
+      const records = rows.map(row => ({
+        studentId: row.studentId,
+        termId: parseInt(selectedTermId, 10),
+        daysOpened: Number(row.daysOpened),
+        daysPresent: Number(row.daysPresent),
+        conduct: row.conduct || undefined,
+        attitude: row.attitude || undefined,
+        interest: row.interest || undefined,
+        teacherRemarks: row.teacherRemarks || undefined,
+      }));
 
-        const res = await fetch("/api/student-term-metadata", {
-          method: "PUT",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify(payload),
-        });
+      const res = await fetch("/api/student-term-metadata/bulk", {
+        method: "PUT",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ records }),
+      });
 
-        if (res.ok) successCount++;
-      }
+      if (!res.ok) throw new Error("Bulk save failed");
+      const data = await res.json();
 
       toast({
         title: "Attendance & Remarks Saved",
-        description: `Successfully updated ${successCount} student records.`,
+        description: `Successfully updated ${data.count ?? rows.length} student records.`,
       });
     } catch (err: unknown) {
       toast({ variant: "destructive", title: "Error saving records" });

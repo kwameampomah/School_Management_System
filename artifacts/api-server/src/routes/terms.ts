@@ -1,6 +1,6 @@
 import { Router, type IRouter } from "express";
-import { eq, and } from "drizzle-orm";
-import { db, termsTable, academicYearsTable } from "@workspace/db";
+import { eq, and, sql } from "drizzle-orm";
+import { db, termsTable, academicYearsTable, attendanceTable, studentFeesTable } from "@workspace/db";
 import { requireAuth, requireAdmin } from "../middlewares/auth";
 import { validate } from "../middlewares/validation";
 import { CreateTermBody, UpdateTermBody } from "@workspace/api-zod";
@@ -120,6 +120,28 @@ router.patch("/terms/:id", requireAdmin, validate(UpdateTermBody), async (req, r
 
 router.delete("/terms/:id", requireAdmin, async (req, res): Promise<void> => {
   const id = parseInt(Array.isArray(req.params.id) ? req.params.id[0] : req.params.id, 10);
+
+  // Check dependencies: attendance, student fees
+  const [attendanceCount] = await db
+    .select({ count: sql<number>`count(*)` })
+    .from(attendanceTable)
+    .where(eq(attendanceTable.termId, id));
+
+  if (Number(attendanceCount?.count ?? 0) > 0) {
+    res.status(400).json({ error: "Cannot delete term: attendance records exist for this term." });
+    return;
+  }
+
+  const [feeCount] = await db
+    .select({ count: sql<number>`count(*)` })
+    .from(studentFeesTable)
+    .where(eq(studentFeesTable.termId, id));
+
+  if (Number(feeCount?.count ?? 0) > 0) {
+    res.status(400).json({ error: "Cannot delete term: fee billing records exist for this term." });
+    return;
+  }
+
   const [term] = await db.delete(termsTable).where(eq(termsTable.id, id)).returning();
   if (!term) {
     res.status(404).json({ error: "Term not found" });
