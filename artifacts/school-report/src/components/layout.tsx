@@ -9,6 +9,7 @@ import {
 import { Button } from "./ui/button";
 import { useTheme } from "@/contexts/theme";
 import SyncStatusIndicator from "@/components/SyncStatusIndicator";
+import CommandPalette from "@/components/CommandPalette";
 
 interface NavGroup {
   groupName: string;
@@ -247,14 +248,25 @@ export function AppLayout({
 
       {/* Desktop Top Status Bar */}
       <div className="hidden md:flex flex-1 md:pl-64 sticky top-0 z-20 bg-background/95 backdrop-blur border-b border-border px-6 py-2.5 items-center justify-between">
-        <div className="text-xs font-medium text-muted-foreground flex items-center gap-2">
-          <span>School Management System</span>
+        <div className="flex items-center gap-3">
+          <button
+            onClick={() => {
+              const event = new KeyboardEvent("keydown", { key: "k", ctrlKey: true });
+              window.dispatchEvent(event);
+            }}
+            className="flex items-center gap-2 px-3 py-1.5 rounded-xl bg-muted/50 hover:bg-muted border border-border text-xs text-muted-foreground transition-all group"
+          >
+            <Zap className="w-3.5 h-3.5 text-primary group-hover:scale-110 transition-transform" />
+            <span>Search or command...</span>
+            <kbd className="ml-4 px-1.5 py-0.5 text-[10px] font-mono bg-card border rounded shadow-xs">Ctrl + K</kbd>
+          </button>
         </div>
         <div className="flex items-center gap-3">
           <SyncStatusIndicator />
           <ThemeToggle />
         </div>
       </div>
+      <CommandPalette role={role} />
 
       {/* Mobile Top Header */}
       <header className="md:hidden flex items-center justify-between p-3 border-b border-border bg-background sticky top-0 z-30">

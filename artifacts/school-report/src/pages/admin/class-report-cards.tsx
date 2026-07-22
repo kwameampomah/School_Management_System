@@ -67,6 +67,9 @@ export default function ClassReportCardsPage() {
     );
   }
 
+  const [selectedStudentIdx, setSelectedStudentIdx] = useState(0);
+  const activeReportCard = reportCards[selectedStudentIdx] || reportCards[0];
+
   return (
     <div className="space-y-6">
       <div className="flex items-center justify-between print:hidden gap-3">
@@ -74,16 +77,95 @@ export default function ClassReportCardsPage() {
           <Link href="/admin/report-cards" className="inline-flex items-center text-sm text-muted-foreground hover:text-primary transition-colors mb-2">
             <ArrowLeft className="w-4 h-4 mr-1" /> Back to Workflow
           </Link>
-          <h1 className="text-xl sm:text-2xl font-bold tracking-tight">Report Cards: {cls?.name}</h1>
+          <h1 className="text-xl sm:text-2xl font-bold tracking-tight">Report Cards Studio: {cls?.name}</h1>
           <p className="text-muted-foreground text-sm">{term?.name} ({term?.academicYearLabel})</p>
         </div>
         <Button onClick={() => window.print()} size="sm">
           <Printer className="w-4 h-4 sm:mr-2" />
-          <span className="hidden sm:inline">Print All</span>
+          <span className="hidden sm:inline">Print All ({reportCards.length})</span>
         </Button>
       </div>
 
-      <div className="space-y-12">
+      {/* Desktop Dual-Pane Live Studio Layout */}
+      <div className="hidden lg:grid grid-cols-12 gap-6 print:hidden">
+        {/* Left Sidebar: Student Selector (3 cols) */}
+        <Card className="col-span-4 border border-border/80 h-[800px] flex flex-col">
+          <CardHeader className="py-3 px-4 border-b">
+            <CardTitle className="text-sm font-bold flex items-center justify-between">
+              <span>Learners ({reportCards.length})</span>
+              <span className="text-xs text-muted-foreground font-mono">Select to preview</span>
+            </CardTitle>
+          </CardHeader>
+          <CardContent className="p-2 overflow-y-auto flex-1 space-y-1">
+            {reportCards.map((rc, idx) => (
+              <button
+                key={rc.studentId}
+                onClick={() => setSelectedStudentIdx(idx)}
+                className={`w-full text-left p-3 rounded-xl border transition-all text-xs flex items-center justify-between touch-active ${
+                  selectedStudentIdx === idx
+                    ? "bg-primary/10 border-primary/30 font-bold text-primary shadow-xs"
+                    : "border-transparent hover:bg-muted/50 text-foreground"
+                }`}
+              >
+                <div>
+                  <div className="font-semibold">{rc.studentName}</div>
+                  <div className="text-[10px] text-muted-foreground font-mono">{rc.studentIdNumber || `ID: ${rc.studentId}`}</div>
+                </div>
+                <div className="text-right font-mono font-bold">
+                  {rc.overallAverage || 0}%
+                </div>
+              </button>
+            ))}
+          </CardContent>
+        </Card>
+
+        {/* Right Pane: Live Interactive Preview (8 cols) */}
+        <div className="col-span-8 space-y-4 overflow-y-auto max-h-[800px] pr-2">
+          {activeReportCard && (
+            <div>
+              <Card className="bg-muted/30 border border-border/80 mb-4">
+                <CardContent className="p-3.5 flex items-center justify-between">
+                  <div className="text-sm font-bold">
+                    Active Preview: <span className="text-primary">{activeReportCard.studentName}</span>
+                  </div>
+                  <div className="flex items-center gap-2">
+                    <Button 
+                      size="sm" 
+                      variant="outline"
+                      onClick={() => setEditingMetadata({ 
+                        studentId: activeReportCard.studentId, 
+                        studentName: activeReportCard.studentName,
+                        daysOpened: activeReportCard.metadata?.daysOpened || 0,
+                        daysPresent: activeReportCard.metadata?.daysPresent || 0,
+                        conduct: activeReportCard.metadata?.conduct || "",
+                        attitude: activeReportCard.metadata?.attitude || "",
+                        interest: activeReportCard.metadata?.interest || "",
+                        teacherRemarks: activeReportCard.metadata?.teacherRemarks || "",
+                        headmasterRemarks: activeReportCard.metadata?.headmasterRemarks || ""
+                      })}
+                    >
+                      <Settings2 className="w-4 h-4 mr-1.5" /> Edit Traits & Remarks
+                    </Button>
+                    <Button 
+                      size="sm" 
+                      variant="outline"
+                      className="text-emerald-600 dark:text-emerald-400"
+                      onClick={() => handleSendNotification(activeReportCard.studentId, activeReportCard.studentName, "whatsapp")}
+                    >
+                      <MessageSquare className="w-4 h-4 mr-1.5" /> WhatsApp
+                    </Button>
+                  </div>
+                </CardContent>
+              </Card>
+
+              <ReportCardAdvanced reportCard={activeReportCard} />
+            </div>
+          )}
+        </div>
+      </div>
+
+      {/* Standard Full-List View (Mobile / Tablet / Print Engine) */}
+      <div className="space-y-12 lg:hidden print:block">
         {reportCards.map((rc, idx) => (
           <div key={rc.studentId} className={`space-y-4 ${idx < reportCards.length - 1 ? "print:break-after-page" : ""}`}>
             {/* Control Panel (Hidden on print) */}

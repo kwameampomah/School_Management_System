@@ -1,7 +1,7 @@
 import React from "react";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { Button } from "@/components/ui/button";
-import { Pencil, Trash2 } from "lucide-react";
+import { Pencil, Trash2, LayoutGrid, Rows } from "lucide-react";
 import type { Student } from "@workspace/api-client-react";
 
 interface StudentTableProps {
@@ -17,8 +17,24 @@ export const StudentTable = React.memo(({
   onEdit,
   onDelete,
 }: StudentTableProps) => {
+  const [isCompact, setIsCompact] = React.useState(false);
+
   return (
     <div>
+      {/* Desktop Table Header Toolbar */}
+      <div className="hidden md:flex items-center justify-between pb-2 mb-2">
+        <span className="text-xs text-muted-foreground font-medium">
+          Showing {students.length} learner records
+        </span>
+        <button
+          onClick={() => setIsCompact(!isCompact)}
+          className="flex items-center gap-1.5 px-2.5 py-1 rounded-lg text-xs font-semibold bg-muted/50 hover:bg-muted border border-border text-muted-foreground transition-all"
+        >
+          <Rows className="w-3.5 h-3.5" />
+          <span>Density: {isCompact ? "Compact" : "Comfortable"}</span>
+        </button>
+      </div>
+
       {/* Desktop Table View */}
       <div className="hidden md:block">
         <Table className="w-full">
@@ -44,6 +60,7 @@ export const StudentTable = React.memo(({
               <StudentRow
                 key={student.id}
                 student={student}
+                isCompact={isCompact}
                 isClassTeacherOfSelectedClass={isClassTeacherOfSelectedClass}
                 onEdit={onEdit}
                 onDelete={onDelete}
@@ -114,6 +131,7 @@ StudentTable.displayName = "StudentTable";
 
 interface StudentRowProps {
   student: Student;
+  isCompact?: boolean;
   isClassTeacherOfSelectedClass: boolean;
   onEdit: (student: Student) => void;
   onDelete: (id: number) => void;
@@ -121,39 +139,44 @@ interface StudentRowProps {
 
 const StudentRow = React.memo(({
   student,
+  isCompact,
   isClassTeacherOfSelectedClass,
   onEdit,
   onDelete,
 }: StudentRowProps) => {
+  const paddingClass = isCompact ? "py-1.5 px-2 text-xs" : "py-3 px-4 text-sm";
+
   return (
     <TableRow>
-      <TableCell className="font-mono text-xs">{student.studentIdNumber}</TableCell>
-      <TableCell className="font-medium">{student.fullName}</TableCell>
-      <TableCell className="text-sm">{student.className}</TableCell>
-      <TableCell className="hidden sm:table-cell capitalize text-sm">{student.gender || "-"}</TableCell>
-      <TableCell className="hidden md:table-cell">
-        <div className="text-sm">{student.guardianName || "-"}</div>
-        <div className="text-xs text-muted-foreground">{student.guardianPhone || ""}</div>
+      <TableCell className={`font-mono text-xs ${paddingClass}`}>{student.studentIdNumber}</TableCell>
+      <TableCell className={`font-medium ${paddingClass}`}>{student.fullName}</TableCell>
+      <TableCell className={paddingClass}>{student.className}</TableCell>
+      <TableCell className={`hidden sm:table-cell capitalize ${paddingClass}`}>{student.gender || "-"}</TableCell>
+      <TableCell className={`hidden md:table-cell ${paddingClass}`}>
+        <div className="font-medium">{student.guardianName || "-"}</div>
+        <div className="text-[11px] text-muted-foreground">{student.guardianPhone || ""}</div>
       </TableCell>
-      <TableCell className="text-right">
+      <TableCell className={`text-right ${paddingClass}`}>
         <div className="flex items-center justify-end gap-1">
           <Button
             variant="ghost"
             size="icon"
+            className={isCompact ? "h-7 w-7" : "h-8 w-8"}
             onClick={() => onEdit(student)}
             disabled={!isClassTeacherOfSelectedClass}
             aria-label={`Edit ${student.fullName}`}
           >
-            <Pencil className="w-4 h-4 text-muted-foreground" />
+            <Pencil className="w-3.5 h-3.5 text-muted-foreground" />
           </Button>
           <Button
             variant="ghost"
             size="icon"
+            className={isCompact ? "h-7 w-7" : "h-8 w-8"}
             onClick={() => onDelete(student.id)}
             disabled={!isClassTeacherOfSelectedClass}
             aria-label={`Delete ${student.fullName}`}
           >
-            <Trash2 className="w-4 h-4 text-destructive" />
+            <Trash2 className="w-3.5 h-3.5 text-destructive" />
           </Button>
         </div>
       </TableCell>

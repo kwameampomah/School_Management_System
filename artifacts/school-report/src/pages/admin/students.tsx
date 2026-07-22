@@ -12,6 +12,7 @@ import { StudentTable } from "@/components/StudentTable";
 import { StudentMobileList } from "@/components/StudentMobileList";
 import { StudentDialog } from "@/components/StudentDialog";
 import { BulkImportDialog } from "@/components/BulkImportDialog";
+import StudentSheet from "@/components/StudentSheet";
 
 export default function StudentsPage() {
   const { data: user } = useGetMe();
@@ -245,7 +246,23 @@ export default function StudentsPage() {
       />
 
       <StudentDialog open={isCreateOpen} onOpenChange={setIsCreateOpen} />
-      <StudentDialog open={!!editingStudent} onOpenChange={(v) => !v && setEditingStudent(null)} student={editingStudent} />
+      <StudentSheet
+        isOpen={!!editingStudent}
+        onClose={() => setEditingStudent(null)}
+        student={editingStudent}
+        classes={classes || []}
+        onSave={async (data) => {
+          if (!editingStudent) return;
+          const res = await fetch(`/api/students/${editingStudent.id}`, {
+            method: "PATCH",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify(data),
+          });
+          if (!res.ok) throw new Error("Update failed");
+          queryClient.invalidateQueries({ queryKey: getListStudentsQueryKey() });
+          toast({ title: "Student updated successfully" });
+        }}
+      />
       <BulkImportDialog open={isImportOpen} onOpenChange={setIsImportOpen} />
     </div>
   );
