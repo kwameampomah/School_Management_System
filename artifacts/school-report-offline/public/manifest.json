@@ -1,0 +1,18 @@
+{
+  "short_name": "Taifa SMS",
+  "name": "Taifa Ebenezer School Management System (Offline PWA)",
+  "icons": [
+    {
+      "src": "/logo.png",
+      "sizes": "192x192 512x512",
+      "type": "image/png",
+      "purpose": "any maskable"
+    }
+  ],
+  "start_url": "/",
+  "background_color": "#090d16",
+  "theme_color": "#4f46e5",
+  "display": "standalone",
+  "orientation": "any",
+  "description": "Offline-First PWA for Taifa Ebenezer Preparatory & JHS School Management System."
+}
