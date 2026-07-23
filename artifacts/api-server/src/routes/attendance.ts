@@ -5,6 +5,8 @@ import { requireAuth, requireTeacher } from "../middlewares/auth";
 import { validate } from "../middlewares/validation";
 import { z } from "zod";
 
+import { logAudit } from "../lib/audit";
+
 const router: IRouter = Router();
 
 const BulkAttendanceSchema = z.object({
@@ -12,8 +14,13 @@ const BulkAttendanceSchema = z.object({
     .string()
     .regex(/^\d{4}-\d{2}-\d{2}$/, "Date must be in YYYY-MM-DD format")
     .refine(
-      (d) => new Date(d) <= new Date(),
-      "Attendance date cannot be in the future"
+      (d) => {
+        const dateObj = new Date(d);
+        const today = new Date();
+        const minDate = new Date("2000-01-01");
+        return dateObj <= today && dateObj >= minDate;
+      },
+      "Attendance date cannot be in the future or before 2000"
     ),
   termId: z.number().int().positive(),
   classId: z.number().int().positive(),
@@ -33,10 +40,13 @@ router.post("/attendance/bulk", requireTeacher, validate(BulkAttendanceSchema), 
   const { date, termId, classId, records } = req.body;
   const userId = req.session.userId ?? null;
 
+  // Sort records deterministically by studentId to prevent deadlocks / race conditions
+  const sortedRecords = [...records].sort((a, b) => a.studentId - b.studentId);
+
   try {
     // Single transaction: all records saved or none
     await db.transaction(async (tx) => {
-      for (const record of records) {
+      for (const record of sortedRecords) {
         await tx
           .insert(attendanceTable)
           .values({
@@ -62,6 +72,8 @@ router.post("/attendance/bulk", requireTeacher, validate(BulkAttendanceSchema), 
           });
       }
     });
+
+    await logAudit(userId, "UPDATE", "attendance", classId, null, `Recorded bulk attendance for ${records.length} students on ${date}`);
 
     res.json({
       success: true,

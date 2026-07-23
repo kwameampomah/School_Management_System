@@ -28,9 +28,8 @@ router.post("/auth/login", loginRateLimiter, validate(LoginBody), async (req, re
     const rows = await db.select().from(usersTable).where(eq(usersTable.email, email));
     user = rows[0];
   } catch (err: any) {
-    console.error("DIAGNOSTIC DATABASE ERROR STACK:", err.stack);
-    console.error("DIAGNOSTIC DATABASE ERROR OBJECT:", err);
-    res.status(500).json({ error: err.message || "Database query failed" });
+    console.error("Auth database query error:", err?.message || err);
+    res.status(500).json({ error: "An unexpected authentication error occurred. Please try again later." });
     return;
   }
 

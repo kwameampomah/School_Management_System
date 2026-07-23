@@ -27,8 +27,18 @@ router.get("/users", requireAdmin, async (req, res): Promise<void> => {
 
 router.post("/users", requireAdmin, validate(CreateUserBody), async (req, res): Promise<void> => {
   const { fullName, email, password, role, staffId, phone } = req.body;
-  if (password.length < 8) {
-    res.status(400).json({ error: "Password must be at least 8 characters long" });
+  
+  // Password complexity policy
+  if (
+    password.length < 10 ||
+    !/[A-Z]/.test(password) ||
+    !/[a-z]/.test(password) ||
+    !/[0-9]/.test(password) ||
+    !/[!@#$%^&*()_+\-=\[\]{};':"\\|,.<>\/?]/.test(password)
+  ) {
+    res.status(400).json({
+      error: "Password must be at least 10 characters and contain an uppercase letter, lowercase letter, number, and special character."
+    });
     return;
   }
 

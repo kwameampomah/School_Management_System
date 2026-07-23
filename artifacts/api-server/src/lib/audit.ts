@@ -2,7 +2,7 @@ import { db, auditLogsTable } from "@workspace/db";
 
 export async function logAudit(
   actorUserId: number | null,
-  action: "INSERT" | "UPDATE" | "DELETE",
+  action: "INSERT" | "UPDATE" | "DELETE" | "UNAUTHORIZED_ATTEMPT",
   tableName: string,
   rowId: number,
   oldValue: string | null = null,

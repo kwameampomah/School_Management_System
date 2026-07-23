@@ -11,6 +11,7 @@ import {
   auditLogsTable,
   reportCardStatusTable,
 } from "@workspace/db";
+import { logAudit } from "../lib/audit";
 import { requireTeacher } from "../middlewares/auth";
 import { validate } from "../middlewares/validation";
 import { UpsertScoreBody, BulkUpsertScoresBody } from "@workspace/api-zod";
@@ -269,7 +270,7 @@ router.put("/scores", requireTeacher, validate(UpsertScoreBody), async (req, res
 });
 
 // PUT /scores/bulk — response stays Score[] to preserve the existing API contract.
-// Entries failing access checks or bounds validation are silently skipped.
+// Entries failing access checks or bounds validation are silently skipped and logged.
 router.put("/scores/bulk", requireTeacher, validate(BulkUpsertScoresBody), async (req, res): Promise<void> => {
   const { scores } = req.body;
   const results = [];
@@ -283,7 +284,17 @@ router.put("/scores/bulk", requireTeacher, validate(BulkUpsertScoresBody), async
       req.session.teacherId ?? null,
       assessmentComponentId,
     );
-    if (!allowed) continue;
+    if (!allowed) {
+      await logAudit(
+        req.session.userId ?? null,
+        "UNAUTHORIZED_ATTEMPT",
+        "scores",
+        assessmentComponentId,
+        null,
+        `Attempted to update score for student ${studentId} on component ${assessmentComponentId} without permission`
+      );
+      continue;
+    }
 
     // Enforce student belongs to this component's class
     const studentInClass = await studentBelongsToComponent(studentId, assessmentComponentId);
@@ -316,7 +327,6 @@ router.put("/scores/bulk", requireTeacher, validate(BulkUpsertScoresBody), async
             )
           );
         if (statusRow?.status === "submitted" || statusRow?.status === "approved") {
-          // Skip this entry — class is locked
           continue;
         }
       }
@@ -351,16 +361,16 @@ router.put("/scores/bulk", requireTeacher, validate(BulkUpsertScoresBody), async
         })
         .returning();
     }
+
     if (score) {
-      // Log audit trail for bulk entry
-      await db.insert(auditLogsTable).values({
-        actorUserId: req.session.userId ?? null,
-        action: existing ? "UPDATE" : "INSERT",
-        tableName: "scores",
-        rowId: score.id,
-        oldValue: existing ? String(existing.scoreValue) : null,
-        newValue: String(numericScore),
-      });
+      await logAudit(
+        req.session.userId ?? null,
+        existing ? "UPDATE" : "INSERT",
+        "scores",
+        score.id,
+        existing ? String(existing.scoreValue) : null,
+        String(numericScore)
+      );
       results.push({ ...score, scoreValue: parseFloat(score.scoreValue as unknown as string) });
     }
   }

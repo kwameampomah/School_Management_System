@@ -29,15 +29,34 @@ import { logAudit } from "../lib/audit";
 
 const router: IRouter = Router();
 
-// Helper: compute subject total for one student, one classSubject, one term
+// Helper: sanitize input strings for PDF rendering to avoid injection/formatting issues
+function sanitizePDFText(text: string | null | undefined): string {
+  if (!text) return "";
+  return text
+    .replace(/[\r\n\t]/g, " ")
+    .replace(/[\u200B-\u200D\uFEFF\u202E]/g, "")
+    .trim();
+}
+
+// Helper: compute subject total for one student, one classSubject, one term (Single Join Query — 0 N+1)
 async function computeSubjectTotal(
   studentId: number,
   classSubjectId: number,
   termId: number,
 ): Promise<{ total: number; componentScores: Array<{ componentId: number; componentName: string; scoreValue: number; maxScore: number; weightPercent: number; weightedScore: number }> }> {
-  const components = await db
-    .select()
+  const rows = await db
+    .select({
+      comp: assessmentComponentsTable,
+      score: scoresTable,
+    })
     .from(assessmentComponentsTable)
+    .leftJoin(
+      scoresTable,
+      and(
+        eq(scoresTable.assessmentComponentId, assessmentComponentsTable.id),
+        eq(scoresTable.studentId, studentId),
+      ),
+    )
     .where(
       and(
         eq(assessmentComponentsTable.classSubjectId, classSubjectId),
@@ -48,16 +67,9 @@ async function computeSubjectTotal(
   const componentScores = [];
   let total = 0;
 
-  for (const comp of components) {
-    const [score] = await db
-      .select()
-      .from(scoresTable)
-      .where(
-        and(
-          eq(scoresTable.studentId, studentId),
-          eq(scoresTable.assessmentComponentId, comp.id),
-        ),
-      );
+  for (const row of rows) {
+    const comp = row.comp;
+    const score = row.score;
 
     const scoreValue = score ? parseFloat(score.scoreValue as unknown as string) : 0;
     const maxScore = parseFloat(comp.maxScore as unknown as string);
@@ -78,6 +90,7 @@ async function computeSubjectTotal(
 
   return { total: Math.round(total), componentScores };
 }
+
 
 // Helper: lookup grade from grading scale
 async function lookupGrade(

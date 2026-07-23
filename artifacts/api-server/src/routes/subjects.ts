@@ -1,6 +1,6 @@
 import { Router, type IRouter } from "express";
-import { eq } from "drizzle-orm";
-import { db, subjectsTable } from "@workspace/db";
+import { eq, sql } from "drizzle-orm";
+import { db, subjectsTable, classSubjectsTable } from "@workspace/db";
 import { requireAuth, requireAdmin } from "../middlewares/auth";
 import { validate } from "../middlewares/validation";
 import { CreateSubjectBody, UpdateSubjectBody } from "@workspace/api-zod";
@@ -39,6 +39,17 @@ router.patch("/subjects/:id", requireAdmin, validate(UpdateSubjectBody), async (
 
 router.delete("/subjects/:id", requireAdmin, async (req, res): Promise<void> => {
   const id = parseInt(Array.isArray(req.params.id) ? req.params.id[0] : req.params.id, 10);
+
+  // Deletion protection: guard against deleting subjects assigned to active classes
+  const [usageCount] = await db
+    .select({ count: sql<number>`count(*)` })
+    .from(classSubjectsTable)
+    .where(eq(classSubjectsTable.subjectId, id));
+  if (Number(usageCount?.count ?? 0) > 0) {
+    res.status(400).json({ error: "Cannot delete subject: it is currently assigned to one or more classes." });
+    return;
+  }
+
   const [subject] = await db.delete(subjectsTable).where(eq(subjectsTable.id, id)).returning();
   if (!subject) {
     res.status(404).json({ error: "Subject not found" });

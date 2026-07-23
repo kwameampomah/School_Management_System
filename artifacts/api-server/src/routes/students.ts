@@ -1,6 +1,6 @@
 import { Router, type IRouter } from "express";
 import { eq, and, inArray, sql } from "drizzle-orm";
-import { db, studentsTable, classesTable, teacherAssignmentsTable, classSubjectsTable, usersTable } from "@workspace/db";
+import { db, studentsTable, classesTable, teacherAssignmentsTable, classSubjectsTable, usersTable, parentsTable } from "@workspace/db";
 import { requireAuth, requireAdmin, requireTeacher } from "../middlewares/auth";
 import { validate } from "../middlewares/validation";
 import { CreateStudentBody, UpdateStudentBody } from "@workspace/api-zod";
@@ -111,34 +111,37 @@ router.get("/students", requireAuth, async (req, res): Promise<void> => {
     }
   }
 
-  // Parents can only see their own children
+  // Parents can only see their own children via relational parent mapping
   if (req.session.role === "parent") {
-    const [currentUser] = await db
-      .select({ fullName: usersTable.fullName })
-      .from(usersTable)
-      .where(eq(usersTable.id, req.session.userId!));
+    const parentLinks = await db
+      .select({ studentId: parentsTable.studentId })
+      .from(parentsTable)
+      .where(eq(parentsTable.userId, req.session.userId!));
 
-    const parentName = currentUser?.fullName;
-    if (!parentName) {
-      res.status(403).json({ error: "No parent profile found for this account" });
-      return;
-    }
-    const children = await db
+    const guardianStudents = await db
       .select({ id: studentsTable.id })
       .from(studentsTable)
-      .where(sql`lower(${studentsTable.guardianName}) = lower(${parentName})`);
-    
-    const childIds = children.map(c => c.id);
+      .where(eq(studentsTable.guardianUserId, req.session.userId!));
+
+    const childIds = Array.from(
+      new Set([
+        ...parentLinks.map((p) => p.studentId),
+        ...guardianStudents.map((s) => s.id),
+      ])
+    );
+
     if (childIds.length === 0) {
       res.json([]);
       return;
     }
-    
+
     if (classId) {
-      conditions.push(and(
-        inArray(studentsTable.id, childIds),
-        eq(studentsTable.classId, classId)
-      ));
+      conditions.push(
+        and(
+          inArray(studentsTable.id, childIds),
+          eq(studentsTable.classId, classId)
+        )
+      );
     } else {
       conditions.push(inArray(studentsTable.id, childIds));
     }
@@ -193,67 +196,68 @@ router.post("/students/bulk", requireTeacher, async (req, res): Promise<void> =>
     return;
   }
 
-  const results = [];
-  const errors = [];
+  const results: any[] = [];
+  const errors: any[] = [];
 
-  for (let i = 0; i < students.length; i++) {
-    const s = students[i];
-    const { studentIdNumber, fullName, classId, dateOfBirth, gender, guardianName, guardianPhone, admissionDate } = s;
-    if (!studentIdNumber || !fullName || !classId) {
-      errors.push({ index: i, error: "studentIdNumber, fullName, and classId are required" });
-      continue;
-    }
+  try {
+    await db.transaction(async (tx) => {
+      for (let i = 0; i < students.length; i++) {
+        const s = students[i];
+        const { studentIdNumber, fullName, classId, dateOfBirth, gender, guardianName, guardianPhone, admissionDate } = s;
+        if (!studentIdNumber || !fullName || !classId) {
+          errors.push({ index: i, error: "studentIdNumber, fullName, and classId are required" });
+          continue;
+        }
 
-    const classIdNum = parseInt(classId, 10);
-    const allowed = await teacherCanManageStudent(req.session.role!, req.session.teacherId ?? null, classIdNum);
-    if (!allowed) {
-      errors.push({ index: i, name: fullName, error: "You are not authorized to add students to this class" });
-      continue;
-    }
+        const classIdNum = parseInt(classId, 10);
+        const allowed = await teacherCanManageStudent(req.session.role!, req.session.teacherId ?? null, classIdNum);
+        if (!allowed) {
+          errors.push({ index: i, name: fullName, error: "You are not authorized to add students to this class" });
+          continue;
+        }
 
-    // Server-side safety gender normalization
-    let normalizedGender: string | null = null;
-    if (gender) {
-      const g = gender.toLowerCase().trim();
-      if (g.startsWith("m")) {
-        normalizedGender = "male";
-      } else if (g.startsWith("f")) {
-        normalizedGender = "female";
+        let normalizedGender: string | null = null;
+        if (gender) {
+          const g = gender.toLowerCase().trim();
+          if (g.startsWith("m")) {
+            normalizedGender = "male";
+          } else if (g.startsWith("f")) {
+            normalizedGender = "female";
+          }
+        }
+
+        const normalizeDate = (dateStr: string | null | undefined): string | null => {
+          if (!dateStr) return null;
+          const cleaned = dateStr.trim().replace(/[\/\.]/g, "-");
+          if (/^\d{4}-\d{2}-\d{2}$/.test(cleaned)) {
+            return cleaned;
+          }
+          return dateStr;
+        };
+
+        const [student] = await tx
+          .insert(studentsTable)
+          .values({
+            studentIdNumber: studentIdNumber.trim(),
+            fullName: fullName.trim(),
+            classId: classIdNum,
+            dateOfBirth: normalizeDate(dateOfBirth),
+            gender: normalizedGender,
+            guardianName: guardianName ? guardianName.trim() : null,
+            guardianPhone: guardianPhone ? guardianPhone.trim() : null,
+            admissionDate: normalizeDate(admissionDate)
+          })
+          .returning();
+
+        await logAudit(req.session.userId ?? null, "INSERT", "students", student.id, null, JSON.stringify(student));
+        results.push(student);
       }
-    }
+    });
 
-    // Server-side safety date normalization
-    const normalizeDate = (dateStr: string | null | undefined): string | null => {
-      if (!dateStr) return null;
-      const cleaned = dateStr.trim().replace(/[\/\.]/g, "-");
-      if (/^\d{4}-\d{2}-\d{2}$/.test(cleaned)) {
-        return cleaned;
-      }
-      return dateStr;
-    };
-
-    try {
-      const [student] = await db
-        .insert(studentsTable)
-        .values({
-          studentIdNumber,
-          fullName,
-          classId: parseInt(classId, 10),
-          dateOfBirth: normalizeDate(dateOfBirth),
-          gender: normalizedGender,
-          guardianName: guardianName || null,
-          guardianPhone: guardianPhone || null,
-          admissionDate: normalizeDate(admissionDate)
-        })
-        .returning();
-      
-      results.push(student);
-    } catch (e: any) {
-      errors.push({ index: i, name: fullName, error: e.message || "Insert failed" });
-    }
+    res.json({ successCount: results.length, errorCount: errors.length, errors });
+  } catch (err: any) {
+    res.status(500).json({ error: "Transaction failed: " + (err.message || "Unknown error") });
   }
-
-  res.json({ successCount: results.length, errorCount: errors.length, errors });
 });
 
 router.get("/students/:id", requireAuth, async (req, res): Promise<void> => {

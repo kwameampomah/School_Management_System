@@ -65,6 +65,26 @@ app.use(cors({
 app.use(express.json());
 app.use(express.urlencoded({ extended: true }));
 
+import { rateLimit } from "express-rate-limit";
+
+// Rate limiting: general API limiter (100 requests per minute per IP)
+const apiRateLimiter = rateLimit({
+  windowMs: 60 * 1000,
+  max: 100,
+  message: { error: "Too many requests. Please wait a moment before trying again." },
+  standardHeaders: true,
+  legacyHeaders: false,
+});
+
+// Stricter rate limiter for heavy bulk endpoints (20 requests per minute)
+const bulkRateLimiter = rateLimit({
+  windowMs: 60 * 1000,
+  max: 20,
+  message: { error: "Too many bulk mutation requests. Please try again in a minute." },
+  standardHeaders: true,
+  legacyHeaders: false,
+});
+
 if (!process.env.SESSION_SECRET) {
   throw new Error("SESSION_SECRET must be set");
 }
@@ -81,15 +101,19 @@ app.use(
     saveUninitialized: false,
     rolling: true, // Reset expiry on every request (activity-based timeout)
     cookie: {
-      maxAge: 4 * 60 * 60 * 1000, // 4 hours of inactivity → auto logout
+      maxAge: 2 * 60 * 60 * 1000, // 2 hours of inactivity → auto logout
       httpOnly: true,              // Not accessible from JavaScript (XSS protection)
       secure: process.env.NODE_ENV === "production",
-      sameSite: "lax",
+      sameSite: "strict",
+      path: "/",
     },
   }),
 );
 
-app.use("/api", router);
+app.use("/api/attendance/bulk", bulkRateLimiter);
+app.use("/api/scores/bulk", bulkRateLimiter);
+app.use("/api/students/bulk", bulkRateLimiter);
+app.use("/api", apiRateLimiter, router);
 
 // API Documentation Endpoint
 app.use("/api/docs", swaggerUi.serve, swaggerUi.setup(swaggerDocument));
