@@ -1,6 +1,6 @@
 import React from "react";
-import AttendanceScreen from "./src/screens/AttendanceScreen";
+import AppNavigator from "./src/navigation/AppNavigator";
 
 export default function App() {
-  return <AttendanceScreen />;
+  return <AppNavigator />;
 }
