@@ -267,6 +267,30 @@ router.get("/students/:id", requireAuth, async (req, res): Promise<void> => {
     res.status(404).json({ error: "Student not found" });
     return;
   }
+
+  if (req.session.role === "teacher") {
+    const allowed = await teacherCanManageStudentId(req.session.role, req.session.teacherId ?? null, id);
+    if (!allowed) {
+      res.status(403).json({ error: "You are not authorized to view this student profile" });
+      return;
+    }
+  } else if (req.session.role === "parent") {
+    const [parentLink] = await db
+      .select()
+      .from(parentsTable)
+      .where(and(eq(parentsTable.userId, req.session.userId!), eq(parentsTable.studentId, id)));
+
+    const [guardianStudent] = await db
+      .select()
+      .from(studentsTable)
+      .where(and(eq(studentsTable.id, id), eq(studentsTable.guardianUserId, req.session.userId!)));
+
+    if (!parentLink && !guardianStudent) {
+      res.status(403).json({ error: "You are not authorized to view this student profile" });
+      return;
+    }
+  }
+
   res.json(row);
 });
 

@@ -1,13 +1,45 @@
 import { Router, type IRouter } from "express";
-import { eq, and, sql } from "drizzle-orm";
-import { db, attendanceTable, studentsTable } from "@workspace/db";
+import { eq, and, inArray, sql } from "drizzle-orm";
+import { db, attendanceTable, studentsTable, classesTable, teacherAssignmentsTable, parentsTable } from "@workspace/db";
 import { requireAuth, requireTeacher } from "../middlewares/auth";
 import { validate } from "../middlewares/validation";
 import { z } from "zod";
 
-import { logAudit } from "../lib/audit";
-
 const router: IRouter = Router();
+
+async function getTeacherClassIds(teacherId: number): Promise<number[]> {
+  const classTeacherClasses = await db
+    .select({ id: classesTable.id })
+    .from(classesTable)
+    .where(eq(classesTable.classTeacherId, teacherId));
+
+  const subjectTeacherAssignments = await db
+    .select({ classId: classesTable.id })
+    .from(teacherAssignmentsTable)
+    .innerJoin(classesTable, eq(teacherAssignmentsTable.classSubjectId, classesTable.id));
+
+  return Array.from(
+    new Set([
+      ...classTeacherClasses.map((c) => c.id),
+      ...subjectTeacherAssignments.map((a) => a.classId),
+    ])
+  );
+}
+
+async function teacherCanManageClass(role: string, teacherId: number | null, classId: number): Promise<boolean> {
+  if (role === "admin") return true;
+  if (!teacherId) return false;
+  const allowed = await getTeacherClassIds(teacherId!);
+  return allowed.includes(classId);
+}
+
+async function teacherCanManageStudent(role: string, teacherId: number | null, studentId: number): Promise<boolean> {
+  if (role === "admin") return true;
+  if (!teacherId) return false;
+  const [student] = await db.select({ classId: studentsTable.classId }).from(studentsTable).where(eq(studentsTable.id, studentId));
+  if (!student || !student.classId) return false;
+  return teacherCanManageClass(role, teacherId, student.classId);
+}
 
 const BulkAttendanceSchema = z.object({
   date: z
@@ -40,6 +72,12 @@ router.post("/attendance/bulk", requireTeacher, validate(BulkAttendanceSchema), 
   const { date, termId, classId, records } = req.body;
   const userId = req.session.userId ?? null;
 
+  const canManage = await teacherCanManageClass(req.session.role!, req.session.teacherId ?? null, classId);
+  if (!canManage) {
+    res.status(403).json({ error: "You are not authorized to manage attendance for this class" });
+    return;
+  }
+
   // Sort records deterministically by studentId to prevent deadlocks / race conditions
   const sortedRecords = [...records].sort((a, b) => a.studentId - b.studentId);
 
@@ -51,29 +89,23 @@ router.post("/attendance/bulk", requireTeacher, validate(BulkAttendanceSchema), 
           .insert(attendanceTable)
           .values({
             studentId: record.studentId,
-            classId,
             termId,
+            classId,
             attendanceDate: date,
             status: record.status,
             notes: record.notes ?? null,
             recordedBy: userId,
           })
           .onConflictDoUpdate({
-            target: [
-              attendanceTable.studentId,
-              attendanceTable.classId,
-              attendanceTable.attendanceDate,
-            ],
+            target: [attendanceTable.studentId, attendanceTable.classId, attendanceTable.attendanceDate],
             set: {
-              status: sql`excluded.status`,
-              notes: sql`excluded.notes`,
+              status: record.status,
+              notes: record.notes ?? null,
               recordedBy: userId,
             },
           });
       }
     });
-
-    await logAudit(userId, "UPDATE", "attendance", classId, null, `Recorded bulk attendance for ${records.length} students on ${date}`);
 
     res.json({
       success: true,
@@ -85,7 +117,7 @@ router.post("/attendance/bulk", requireTeacher, validate(BulkAttendanceSchema), 
   }
 });
 
-// 2. GET Student Attendance Summary for Term (authenticated users)
+// 2. GET Student Attendance Summary for Term (authenticated users with ownership/teacher scope)
 router.get("/attendance/summary/:studentId/:termId", requireAuth, async (req, res): Promise<void> => {
   const studentId = parseInt(
     Array.isArray(req.params.studentId) ? req.params.studentId[0] : req.params.studentId,
@@ -99,6 +131,29 @@ router.get("/attendance/summary/:studentId/:termId", requireAuth, async (req, re
   if (isNaN(studentId) || studentId <= 0 || isNaN(termId) || termId <= 0) {
     res.status(400).json({ error: "Invalid studentId or termId parameter" });
     return;
+  }
+
+  if (req.session.role === "teacher") {
+    const allowed = await teacherCanManageStudent(req.session.role, req.session.teacherId ?? null, studentId);
+    if (!allowed) {
+      res.status(403).json({ error: "You are not authorized to view this student's attendance summary" });
+      return;
+    }
+  } else if (req.session.role === "parent") {
+    const [parentLink] = await db
+      .select()
+      .from(parentsTable)
+      .where(and(eq(parentsTable.userId, req.session.userId!), eq(parentsTable.studentId, studentId)));
+
+    const [guardianStudent] = await db
+      .select()
+      .from(studentsTable)
+      .where(and(eq(studentsTable.id, studentId), eq(studentsTable.guardianUserId, req.session.userId!)));
+
+    if (!parentLink && !guardianStudent) {
+      res.status(403).json({ error: "You are not authorized to view this student's attendance summary" });
+      return;
+    }
   }
 
   try {
@@ -154,6 +209,12 @@ router.get("/attendance/report/:classId/:termId", requireTeacher, async (req, re
 
   if (isNaN(classId) || classId <= 0 || isNaN(termId) || termId <= 0) {
     res.status(400).json({ error: "Invalid classId or termId parameter" });
+    return;
+  }
+
+  const canManage = await teacherCanManageClass(req.session.role!, req.session.teacherId ?? null, classId);
+  if (!canManage) {
+    res.status(403).json({ error: "You are not authorized to view attendance report for this class" });
     return;
   }
 
@@ -217,6 +278,18 @@ router.patch("/attendance/:id", requireTeacher, async (req, res): Promise<void> 
     return;
   }
 
+  const [existingRecord] = await db.select().from(attendanceTable).where(eq(attendanceTable.id, id));
+  if (!existingRecord) {
+    res.status(404).json({ error: "Attendance record not found" });
+    return;
+  }
+
+  const canManage = await teacherCanManageClass(req.session.role!, req.session.teacherId ?? null, existingRecord.classId);
+  if (!canManage) {
+    res.status(403).json({ error: "You are not authorized to modify attendance for this class" });
+    return;
+  }
+
   const PatchSchema = z.object({
     status: z.enum(["present", "absent", "late", "excused"]).optional(),
     notes: z.string().max(500).nullable().optional(),
@@ -243,11 +316,6 @@ router.patch("/attendance/:id", requireTeacher, async (req, res): Promise<void> 
       .set(updates)
       .where(eq(attendanceTable.id, id))
       .returning();
-
-    if (!updated) {
-      res.status(404).json({ error: "Attendance record not found" });
-      return;
-    }
 
     res.json(updated);
   } catch (error) {

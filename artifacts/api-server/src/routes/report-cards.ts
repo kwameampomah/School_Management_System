@@ -21,6 +21,7 @@ import {
   studentFeesTable,
   teachersTable,
   feeTypesTable,
+  parentsTable,
 } from "@workspace/db";
 import { requireAuth, requireAdmin, requireTeacher } from "../middlewares/auth";
 import { validate } from "../middlewares/validation";
@@ -600,15 +601,19 @@ router.get("/report-cards/:studentId/:termId/export", requireAuth, async (req, r
     }
   }
 
-  // Parent Access Audit
+  // Relational Parent Access Audit
   if (req.session.role === "parent") {
-    const [currentUser] = await db
-      .select({ fullName: usersTable.fullName })
-      .from(usersTable)
-      .where(eq(usersTable.id, req.session.userId!));
+    const [parentLink] = await db
+      .select()
+      .from(parentsTable)
+      .where(and(eq(parentsTable.userId, req.session.userId!), eq(parentsTable.studentId, studentId)));
 
-    const parentName = currentUser?.fullName;
-    if (!parentName || !student.guardianName || student.guardianName.toLowerCase() !== parentName.toLowerCase()) {
+    const [guardianStudent] = await db
+      .select()
+      .from(studentsTable)
+      .where(and(eq(studentsTable.id, studentId), eq(studentsTable.guardianUserId, req.session.userId!)));
+
+    if (!parentLink && !guardianStudent) {
       res.status(403).json({ error: "You are not authorized to view report cards for this student" });
       return;
     }

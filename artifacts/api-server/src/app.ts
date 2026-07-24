@@ -137,10 +137,11 @@ app.use((err: unknown, req: express.Request, res: express.Response, _next: expre
   if (err instanceof Error) {
     const status = (err as any).status || (err as any).statusCode || 500;
     req.log?.error({ err }, err.message);
-    res.status(status).json({ error: err.message || "An unexpected error occurred" });
+    const errorMessage = process.env.NODE_ENV === "production" ? "Internal Server Error" : (err.message || "An unexpected error occurred");
+    res.status(status).json({ error: errorMessage });
   } else {
     req.log?.error({ err }, "Unknown error thrown");
-    res.status(500).json({ error: "An unexpected error occurred" });
+    res.status(500).json({ error: "Internal Server Error" });
   }
 });
 
